@@ -1,0 +1,2272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Plant Tissue Culture Virtual Laboratory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --bg-canvas:#eef2f0;
+    --panel-bg:rgba(255,255,255,0.94);
+    --panel-bg-solid:#ffffff;
+    --panel-border:rgba(31,74,60,0.18);
+    --accent:#1F8A63;
+    --accent-soft:rgba(31,138,99,0.12);
+    --accent-ink:#ffffff;
+    --warn:#C0562A;
+    --warn-soft:rgba(192,86,42,0.12);
+    --text-primary:#122019;
+    --text-secondary:#4C6259;
+    --text-mono:#146247;
+    --divider:rgba(20,40,32,0.10);
+    --font-sans:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,'Courier New',monospace;
+    --radius:4px;
+    --shadow:0 8px 28px rgba(10,25,20,0.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg-canvas:#0a0f0d;
+      --panel-bg:rgba(13,22,19,0.90);
+      --panel-bg-solid:#0f1815;
+      --panel-border:rgba(120,210,180,0.22);
+      --accent:#3FB58C;
+      --accent-soft:rgba(63,181,140,0.16);
+      --accent-ink:#08130f;
+      --warn:#E2864F;
+      --warn-soft:rgba(226,134,79,0.15);
+      --text-primary:#EAF3EF;
+      --text-secondary:#9FB8AF;
+      --text-mono:#8FE6C4;
+      --divider:rgba(160,220,200,0.14);
+      --shadow:0 8px 30px rgba(0,0,0,0.5);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg-canvas:#0a0f0d;
+    --panel-bg:rgba(13,22,19,0.90);
+    --panel-bg-solid:#0f1815;
+    --panel-border:rgba(120,210,180,0.22);
+    --accent:#3FB58C;
+    --accent-soft:rgba(63,181,140,0.16);
+    --accent-ink:#08130f;
+    --warn:#E2864F;
+    --warn-soft:rgba(226,134,79,0.15);
+    --text-primary:#EAF3EF;
+    --text-secondary:#9FB8AF;
+    --text-mono:#8FE6C4;
+    --divider:rgba(160,220,200,0.14);
+    --shadow:0 8px 30px rgba(0,0,0,0.5);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg-canvas);font-family:var(--font-sans);color:var(--text-primary);}
+  :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  #canvas-container{position:fixed;inset:0;}
+  #canvas-container canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab;}
+  #canvas-container.dragging canvas{cursor:grabbing;}
+
+  #loading{position:fixed;inset:0;z-index:200;background:var(--bg-canvas);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .5s ease;}
+  #loading.hide{opacity:0;pointer-events:none;}
+  #loading .mark{font-size:44px;}
+  #loading h1{font-size:15px;letter-spacing:.04em;margin:0;font-weight:600;text-align:center;padding:0 16px;}
+  #loading p{font-size:12.5px;color:var(--text-secondary);margin:0;}
+  #loading .bar{width:220px;height:3px;background:var(--divider);border-radius:2px;overflow:hidden;}
+  #loading .bar i{display:block;height:100%;width:30%;background:var(--accent);animation:load 1.1s ease-in-out infinite;}
+  @keyframes load{0%{transform:translateX(-100%);}100%{transform:translateX(430%);}}
+  @media (prefers-reduced-motion: reduce){ #loading .bar i{animation:none;width:100%;} }
+
+  #topbar{position:fixed;top:env(safe-area-inset-top,0px);left:0;right:0;z-index:40;display:flex;align-items:center;gap:10px;padding:9px 14px;background:var(--panel-bg);backdrop-filter:blur(10px);border-bottom:1px solid var(--panel-border);}
+  #topbar .brand{display:flex;align-items:center;gap:8px;margin-right:6px;white-space:nowrap;}
+  #topbar .brand .ico{font-size:19px;}
+  #topbar .brand b{font-weight:600;font-size:13.5px;letter-spacing:.01em;display:block;}
+  #topbar .brand small{display:block;font-size:10.5px;color:var(--text-secondary);font-weight:400;}
+  #topbar .btns{display:flex;gap:6px;overflow-x:auto;flex:1;scrollbar-width:none;}
+  #topbar .btns::-webkit-scrollbar{display:none;}
+  .tbtn{flex:none;background:transparent;border:1px solid var(--panel-border);color:var(--text-primary);font-family:var(--font-sans);font-size:11.5px;font-weight:500;padding:7px 11px;border-radius:var(--radius);cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s;}
+  .tbtn:hover{background:var(--accent-soft);border-color:var(--accent);}
+  .tbtn:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+  .tbtn.active{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);}
+  #theme-toggle{flex:none;background:transparent;border:1px solid var(--panel-border);color:var(--text-primary);width:30px;height:30px;border-radius:var(--radius);cursor:pointer;font-size:14px;}
+
+  #crosshair{position:fixed;left:50%;top:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;border:1.5px solid rgba(255,255,255,0.9);box-shadow:0 0 0 1px rgba(0,0,0,0.4);z-index:30;pointer-events:none;}
+  #prompt{position:fixed;left:50%;top:calc(50% + 18px);transform:translateX(-50%);background:rgba(10,20,17,0.85);color:#EAF3EF;font-size:12px;font-family:var(--font-mono);padding:5px 10px;border-radius:3px;opacity:0;transition:opacity .12s;z-index:30;pointer-events:none;white-space:nowrap;border:1px solid rgba(120,210,180,0.4);}
+
+  #toast{position:fixed;left:50%;top:calc(64px + env(safe-area-inset-top,0px));transform:translateX(-50%);background:var(--panel-bg-solid);border:1px solid var(--warn);color:var(--text-primary);padding:9px 14px;border-radius:var(--radius);font-size:12.5px;z-index:70;opacity:0;pointer-events:none;transition:opacity .2s;max-width:min(520px,90vw);box-shadow:var(--shadow);}
+  #toast.show{opacity:1;}
+
+  #credit{position:fixed;left:14px;top:calc(58px + env(safe-area-inset-top,0px));width:300px;max-width:calc(100vw - 28px);background:var(--panel-bg);backdrop-filter:blur(8px);border:1px solid var(--panel-border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:8px 12px;z-index:35;font-size:12px;line-height:1.5;}
+  #credit .cr-title{font-size:10.5px;color:var(--text-secondary);letter-spacing:.05em;text-transform:uppercase;font-weight:600;margin-bottom:3px;}
+  #credit .cr-row{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;}
+  #credit .cr-row b{font-weight:600;}
+  #credit .cr-row span{font-family:var(--font-mono);color:var(--text-mono);font-size:11.5px;}
+  #room-card{position:fixed;left:14px;top:calc(146px + env(safe-area-inset-top,0px));width:300px;max-width:calc(100vw - 28px);background:var(--panel-bg);backdrop-filter:blur(10px);border:1px solid var(--panel-border);border-left:3px solid var(--accent);border-radius:var(--radius);padding:11px 13px;z-index:36;font-size:12px;line-height:1.5;opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .25s,transform .25s;}
+  #room-card.show{opacity:1;transform:none;pointer-events:auto;}
+  #room-card .rc-name{font-weight:600;font-size:13.5px;margin-bottom:3px;}
+  #room-card .rc-purpose{color:var(--text-secondary);margin-bottom:5px;}
+  #room-card .rc-line{margin-top:2px;}
+  #room-card .rc-line.safety{color:var(--warn);}
+  #room-card button{margin-top:8px;background:transparent;border:1px solid var(--panel-border);color:var(--text-primary);border-radius:3px;font-size:11px;padding:5px 9px;cursor:pointer;font-family:var(--font-sans);}
+
+  #side-panel{position:fixed;top:calc(56px + env(safe-area-inset-top,0px));right:-380px;width:350px;max-width:88vw;bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--panel-bg);backdrop-filter:blur(10px);border:1px solid var(--panel-border);border-radius:var(--radius);box-shadow:var(--shadow);z-index:45;display:flex;flex-direction:column;transition:right .25s ease;overflow:hidden;}
+  #side-panel.open{right:14px;}
+  #side-panel .sp-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--divider);}
+  #side-panel .sp-head .tabs{display:flex;gap:6px;}
+  #side-panel .sp-head button.mini{background:transparent;border:1px solid var(--panel-border);color:var(--text-secondary);font-family:var(--font-sans);font-size:10.5px;padding:4px 9px;border-radius:3px;cursor:pointer;}
+  #side-panel .sp-close{background:none;border:none;color:var(--text-secondary);font-size:18px;cursor:pointer;line-height:1;padding:2px 4px;}
+  #side-panel .sp-body{padding:14px 16px;overflow-y:auto;flex:1;}
+  #side-panel .sp-body h2{font-size:16px;margin:0 0 10px;font-weight:600;}
+  #side-panel .sp-body h3{font-size:11px;color:var(--text-secondary);margin:14px 0 4px;font-weight:600;letter-spacing:.02em;}
+  #side-panel .sp-body p{font-size:13px;line-height:1.55;margin:0;}
+  #side-panel .sp-body ul{margin:2px 0;padding-left:18px;font-size:13px;line-height:1.55;}
+  #side-panel .safety-h{color:var(--warn)!important;}
+  #side-panel .safety-p{background:var(--warn-soft);padding:8px 10px;border-radius:3px;border-left:3px solid var(--warn);}
+  #side-panel ul.safety-p{padding-left:26px;}
+  #side-panel .sp-foot{padding:12px 16px;border-top:1px solid var(--divider);display:flex;flex-wrap:wrap;gap:8px;}
+  .btn-toggle{flex:1;min-width:110px;background:var(--accent);color:var(--accent-ink);border:none;border-radius:3px;padding:9px 10px;font-family:var(--font-sans);font-weight:600;font-size:12px;cursor:pointer;}
+  .btn-toggle.off{background:transparent;color:var(--text-primary);border:1px solid var(--panel-border);}
+  .btn-toggle.warn{background:var(--warn);color:#1a0d05;}
+  .btn-toggle.ghost{background:transparent;color:var(--text-secondary);border:1px solid var(--panel-border);}
+  .status-row{display:flex;align-items:center;gap:7px;font-family:var(--font-mono);font-size:12px;margin-bottom:8px;}
+  .dot{width:9px;height:9px;border-radius:50%;background:#767f7a;}
+  .dot.on{background:var(--accent);box-shadow:0 0 6px var(--accent);}
+  .readout{font-family:var(--font-mono);font-size:12px;line-height:1.7;background:var(--accent-soft);border:1px solid var(--panel-border);padding:8px 10px;border-radius:3px;margin-bottom:10px;}
+  .uv-warn{width:100%;background:var(--warn-soft);border-left:3px solid var(--warn);padding:8px 10px;border-radius:3px;font-size:12px;}
+  .note{font-size:12px;color:var(--text-secondary);margin-top:6px;}
+
+  #controls-hint{position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:38;background:var(--panel-bg);backdrop-filter:blur(8px);border:1px solid var(--panel-border);border-radius:var(--radius);padding:9px 12px;font-size:11px;color:var(--text-secondary);font-family:var(--font-mono);line-height:1.7;max-width:270px;}
+  #controls-hint b{color:var(--text-primary);}
+  #dpad{position:fixed;left:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:39;display:none;grid-template-columns:repeat(3,46px);grid-template-rows:repeat(3,46px);gap:4px;}
+  #dpad button{background:var(--panel-bg);border:1px solid var(--panel-border);color:var(--text-primary);border-radius:6px;font-size:16px;user-select:none;-webkit-user-select:none;touch-action:none;}
+  #dpad .f{grid-column:2;grid-row:1;} #dpad .l{grid-column:1;grid-row:2;} #dpad .r{grid-column:3;grid-row:2;} #dpad .b{grid-column:2;grid-row:3;}
+
+  #mm-wrap{position:fixed;right:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:38;background:var(--panel-bg);backdrop-filter:blur(8px);border:1px solid var(--panel-border);border-radius:var(--radius);padding:8px;box-shadow:var(--shadow);}
+  #mm-wrap .mm-title{font-size:11px;color:var(--text-secondary);margin-bottom:5px;display:flex;justify-content:space-between;gap:10px;}
+  #mm-wrap .mm-title b{color:var(--accent);font-weight:600;font-size:11px;}
+  #minimap{display:block;border-radius:2px;cursor:pointer;}
+  #mm-legend{display:flex;gap:8px;margin-top:6px;font-size:10px;color:var(--text-secondary);flex-wrap:wrap;max-width:300px;}
+  #mm-legend span{display:flex;align-items:center;gap:3px;}
+  #mm-legend i{width:8px;height:8px;border-radius:2px;display:inline-block;border:1px solid rgba(0,0,0,0.2);}
+
+  #learn-banner{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:41;background:var(--panel-bg-solid);border:1px solid var(--accent);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px 14px;display:none;gap:12px;align-items:center;width:min(580px,92vw);}
+  #learn-banner.show{display:flex;}
+  #learn-banner .lb-text{flex:1;min-width:0;}
+  #learn-banner .lb-step{font-size:11px;color:var(--accent);font-weight:600;}
+  #learn-banner .lb-room{font-size:13.5px;font-weight:600;margin:1px 0 2px;}
+  #learn-banner .lb-note{font-size:11.5px;color:var(--text-secondary);}
+  #learn-banner .lb-btns{display:flex;gap:6px;flex:none;flex-wrap:wrap;justify-content:flex-end;}
+  #learn-banner button{background:transparent;border:1px solid var(--panel-border);color:var(--text-primary);border-radius:3px;font-size:11px;padding:6px 9px;cursor:pointer;font-family:var(--font-sans);}
+  #learn-banner button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600;}
+
+  #modal-overlay{position:fixed;inset:0;z-index:60;background:rgba(4,10,8,0.55);backdrop-filter:blur(2px);display:none;align-items:center;justify-content:center;padding:24px;}
+  #modal-overlay.show{display:flex;}
+  #modal{background:var(--panel-bg-solid);border:1px solid var(--panel-border);border-radius:6px;width:min(720px,100%);max-height:min(84vh,760px);display:flex;flex-direction:column;box-shadow:var(--shadow);}
+  #modal .m-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--divider);}
+  #modal .m-head h2{margin:0;font-size:15px;font-weight:600;}
+  #modal .m-close{background:none;border:none;color:var(--text-secondary);font-size:20px;cursor:pointer;}
+  #modal .m-body{padding:16px 18px;overflow-y:auto;font-size:13px;line-height:1.6;}
+  #modal .m-body h3{font-size:12px;color:var(--accent);margin:16px 0 6px;}
+  #modal .m-body h3:first-child{margin-top:0;}
+  #modal .m-body ul{margin:4px 0;padding-left:18px;}
+  #modal .m-body li{margin-bottom:4px;}
+  .kv-row{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--divider);}
+  .kv-row kbd{background:var(--accent-soft);color:var(--text-mono);border-radius:3px;padding:2px 7px;font-family:var(--font-mono);font-size:11.5px;white-space:nowrap;}
+  .eq-item{padding:9px 0;border-bottom:1px solid var(--divider);cursor:pointer;}
+  .eq-item:hover .eq-name{color:var(--accent);}
+  .eq-item .eq-name{font-weight:600;font-size:13px;}
+  .eq-item .eq-sub{font-size:11.5px;color:var(--text-secondary);}
+  .map-wrap{overflow-x:auto;}
+
+  @media (max-width:760px){
+    #topbar .brand small{display:none;}
+    #controls-hint{display:none;}
+    #dpad{display:grid;}
+    #side-panel{top:auto;bottom:0;right:0;left:0;width:100%;max-width:100%;border-radius:12px 12px 0 0;max-height:60vh;}
+    #side-panel.open{right:0;}
+    #mm-wrap{transform:scale(0.78);transform-origin:bottom right;}
+    #learn-banner{bottom:calc(150px + env(safe-area-inset-bottom,0px));}
+    #room-card{width:240px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="mark">🧫</div>
+  <h1>PLANT TISSUE CULTURE VIRTUAL LABORATORY</h1>
+  <p>Building the laboratory…</p>
+  <div class="bar"><i></i></div>
+</div>
+
+<div id="canvas-container"></div>
+<div id="crosshair"></div>
+<div id="prompt"></div>
+<div id="toast"></div>
+<div id="room-card"></div>
+<div id="credit"><div class="cr-title">Submitted by</div><div class="cr-row"><b>Shivansh Sahu</b><span>Roll no. 24111038</span></div><div class="cr-row"><b>Ayush Dhavanya</b><span>Roll no. 24111010</span></div></div>
+
+<div id="topbar">
+  <div class="brand">
+    <span class="ico">🧫</span>
+    <div><b>PLANT TISSUE CULTURE VIRTUAL LAB</b><small id="room-tag">Entry / Receiving Area</small></div>
+  </div>
+  <div class="btns">
+    <button class="tbtn" id="btn-daynight">Day mode</button>
+    <button class="tbtn" id="btn-map">Lab Map</button>
+    <button class="tbtn" id="btn-equipment">Equipment</button>
+    <button class="tbtn" id="btn-safety">Safety</button>
+    <button class="tbtn" id="btn-guide">Lab Guide</button>
+    <button class="tbtn" id="btn-learn">Learning Mode</button>
+    <button class="tbtn" id="btn-reset">Reset View</button>
+    <button class="tbtn" id="btn-help">Help</button>
+  </div>
+  <button id="theme-toggle" title="Toggle interface theme" aria-label="Toggle interface theme">◐</button>
+</div>
+
+<div id="side-panel">
+  <div class="sp-head">
+    <div class="tabs">
+      <button class="mini" id="sp-about-btn">About</button>
+      <button class="mini" id="sp-safety-btn">Safety</button>
+    </div>
+    <button class="sp-close" id="sp-close" aria-label="Close panel">✕</button>
+  </div>
+  <div class="sp-body" id="sp-body"></div>
+  <div class="sp-foot" id="sp-foot"></div>
+</div>
+
+<div id="controls-hint">
+  <b>W A S D</b> / arrows — move<br>
+  <b>Drag</b> — look &nbsp; <b>Scroll</b> — zoom<br>
+  <b>Click</b> or <b>E</b> — inspect &nbsp; <b>Esc</b> — close
+</div>
+<div id="dpad">
+  <button class="f" id="dp-f" aria-label="Forward">▲</button>
+  <button class="l" id="dp-l" aria-label="Left">◀</button>
+  <button class="r" id="dp-r" aria-label="Right">▶</button>
+  <button class="b" id="dp-b" aria-label="Back">▼</button>
+</div>
+
+<div id="mm-wrap">
+  <div class="mm-title"><span>Lab map · click to teleport</span><b id="mm-room">Entry</b></div>
+  <canvas id="minimap" width="300" height="210"></canvas>
+  <div id="mm-legend">
+    <span><i style="background:#CFEFE1"></i>Aseptic</span>
+    <span><i style="background:#EFE6D2"></i>Washing</span>
+    <span><i style="background:#F2E9C2"></i>Chemical</span>
+    <span><i style="background:#F0DAD2"></i>Waste</span>
+    <span><i style="background:#C0562A"></i>You</span>
+  </div>
+</div>
+
+<div id="learn-banner">
+  <div class="lb-text">
+    <div class="lb-step" id="lb-step">Step 1 of 8</div>
+    <div class="lb-room" id="lb-room">Entry / Receiving Area</div>
+    <div class="lb-note" id="lb-note"></div>
+  </div>
+  <div class="lb-btns">
+    <button id="lb-prev">Prev</button>
+    <button class="primary" id="lb-go">Take me there</button>
+    <button id="lb-next">Next</button>
+    <button id="lb-exit" aria-label="Exit learning mode">✕</button>
+  </div>
+</div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <div class="m-head"><h2 id="modal-title">Title</h2><button class="m-close" id="modal-close" aria-label="Close">✕</button></div>
+    <div class="m-body" id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============================================================
+     THEME  (per-viewer convenience, guarded)
+  ============================================================ */
+  try{ var savedTheme = localStorage.getItem('ptc_lab_theme'); if(savedTheme){ document.documentElement.setAttribute('data-theme', savedTheme); } }catch(e){}
+  document.getElementById('theme-toggle').addEventListener('click', function(){
+    var cur = document.documentElement.getAttribute('data-theme');
+    var sysDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var next = cur==='light' ? 'dark' : (cur==='dark' ? 'light' : (sysDark ? 'light' : 'dark'));
+    document.documentElement.setAttribute('data-theme', next);
+    try{ localStorage.setItem('ptc_lab_theme', next); }catch(e){}
+  });
+
+  if(typeof THREE === 'undefined'){
+    document.getElementById('loading').innerHTML = '<div class="mark">⚠</div><h1>3D engine failed to load</h1><p>Check your connection and reload the page.</p>';
+    return;
+  }
+
+  /* ============================================================
+     MODULE: constants and laboratory data
+  ============================================================ */
+  var WALL_H = 10, WALL_T = 0.5, EYE_H = 5.5, PLAYER_R = 1.0, MOVE_SPEED = 15, DOOR_H = 8.2, LOOK_SENS = 0.0032;
+
+  var ROOMS = [
+    {id:'entry', short:'Entry', name:'Entry / Receiving Area', x1:-50,x2:-35,z1:5,z2:35, row:'north', floorColor:0xE7ECE9,
+      purpose:'First point of contact for staff and visitors: orientation, and PPE before entering working areas.',
+      activities:['Check in and orient to the lab','Put on lab coat, gloves and eye protection','Receive incoming plant material and supplies'],
+      equipment:['PPE Station','Hand Sanitizer','Visitor Information Board','Lab Navigation Panel'],
+      safety:['Wear appropriate PPE before proceeding past this point.','First-time visitors should read the information board.']},
+    {id:'handwash', short:'Wash/PPE', name:'Hand-Washing / PPE Area', x1:-35,x2:-25,z1:5,z2:35, row:'north', floorColor:0xDCEFEA,
+      purpose:'Dedicated hand-washing and PPE donning area before staff move into the preparation and working rooms.',
+      activities:['Wash and sanitize hands','Change into clean PPE'],
+      equipment:['Hand-Washing Sink','Lab Coat Rack','Glove & Mask Dispenser','Safety Goggles Rack'],
+      safety:['Wash hands thoroughly before handling any lab materials.','Change gloves between dirty and clean tasks.']},
+    {id:'washing', short:'Glassware', name:'Glassware Washing Room', x1:-25,x2:-5,z1:5,z2:35, row:'north', floorColor:0xEFE6D2,
+      purpose:'Used glassware is cleaned and dried here before it returns to media preparation. Dirty and clean sides are kept apart.',
+      activities:['Soak and scrub used glassware','Rinse with RO/DI water','Dry on racks and move to clean storage'],
+      equipment:['Large Laboratory Sink','Dirty Washing Racks','Clean Drying Racks','Detergent Storage'],
+      safety:['Handle broken glass with care and place it in the glass waste bin, never in general trash.']},
+    {id:'mediaprep', short:'Media Prep', name:'Media Preparation Room', x1:-5,x2:20,z1:5,z2:35, row:'north', floorColor:0xE3EEF2,
+      purpose:'Culture media is formulated, weighed, pH-adjusted and dispensed into vessels here before sterilization.',
+      activities:['Weigh nutrients, sucrose and growth regulators','Dissolve, mix and adjust pH','Add agar, heat and dispense into vessels'],
+      equipment:['Analytical Balance','pH Meter','Magnetic Stirrer / Hot Plate','Water Bath','Microwave','RO/DI Water System','Refrigerator & Freezer'],
+      safety:['Handle plant growth regulators and chemicals with gloves.','Confirm pH is adjusted before bottling media.']},
+    {id:'sterilization', short:'Sterilize', name:'Sterilization Room', x1:20,x2:35,z1:5,z2:35, row:'north', floorColor:0xE9E3EC,
+      purpose:'Media, glassware and instruments are sterilized here before moving to the aseptic transfer room.',
+      activities:['Autoclave media and tools','Dry-heat sterilize glassware','Cool and store sterile materials'],
+      equipment:['Autoclave','Hot Air Oven','Sterile Storage Racks','Heat-Resistant Gloves'],
+      safety:['Never open the autoclave until pressure reads zero.','Use heat-resistant gloves when unloading hot materials.']},
+    {id:'transfer', short:'Transfer', name:'Inoculation / Transfer Room', x1:35,x2:50,z1:5,z2:35, row:'north', floorColor:0xCFEFE1,
+      purpose:'The critical aseptic zone where explants and cultures are handled under sterile laminar airflow.',
+      activities:['Surface-sterilize and excise explants','Inoculate culture vessels','Subculture callus and shoots'],
+      equipment:['Laminar Air Flow Cabinet','UV Lamp','Sterile Instruments','Spirit Lamp','Biological Waste Bin'],
+      safety:['UV exposure must be avoided while personnel are present.','Flame instruments between cuts to reduce contamination.']},
+    {id:'storage', short:'Storage', name:'Storage Room', x1:-50,x2:-35,z1:-35,z2:-5, row:'south', floorColor:0xE7E2ED,
+      purpose:'Central store for glassware, consumables, culture vessels, PPE and general laboratory supplies.',
+      activities:['Restock supplies','Retrieve glassware and vessels','Keep inventory labeled and organized'],
+      equipment:['9 Labeled Storage Cabinets','Tall Storage Rack','Refrigerator / Freezer'],
+      safety:['Return supplies to their labeled section after use.']},
+    {id:'chemstorage', short:'Chemicals', name:'Chemical Storage Area', x1:-35,x2:-23,z1:-35,z2:-5, row:'south', floorColor:0xF2E9C2,
+      purpose:'Segregated storage for laboratory chemicals and plant growth regulators by hazard class.',
+      activities:['Store chemicals by hazard class','Retrieve measured quantities','Check inventory and expiry dates'],
+      equipment:['Acid Cabinet','Base Cabinet','General Chemicals','PGR Cabinet','Cleaning / Disinfectant Cabinet','Safety Shower & Eyewash'],
+      safety:['Never store acids and bases together; check hazard labels before handling.']},
+    {id:'inststorage', short:'Instruments', name:'Instrument / Consumable Storage', x1:-23,x2:-11,z1:-35,z2:-5, row:'south', floorColor:0xE6E6EE,
+      purpose:'Storage and staging area for laboratory instruments and consumable supplies.',
+      activities:['Stage instruments for use','Store consumables','Log equipment use'],
+      equipment:['Microscope','Centrifuge','Orbital Shaker','Micropipettes','Consumables Shelving'],
+      safety:['Handle optical and precision instruments with care; log any equipment faults.']},
+    {id:'culture', short:'Culture', name:'Culture Room', x1:-11,x2:17,z1:-35,z2:-5, row:'south', floorColor:0xC9EAD9,
+      purpose:'Controlled-environment room where cultures grow under set light, temperature and humidity.',
+      activities:['Incubate cultures under a set photoperiod','Watch for contamination and growth','Subculture on schedule'],
+      equipment:['Culture Racks (Explant, Callus, Shoot, Root)','Growth Lights','Environmental Monitor','HVAC'],
+      safety:['Maintain cleanliness and avoid unnecessary disturbance of cultures.']},
+    {id:'darkroom', short:'Dark Rm', name:'Dark Room', x1:17,x2:28,z1:-35,z2:-5, row:'south', floorColor:0x3A4240,
+      purpose:'A light-controlled room for cultures or experiments that need low-light or dark conditions.',
+      activities:['Maintain light-sensitive cultures','Dark incubation, for example callus induction'],
+      equipment:['Culture Racks','Environmental Monitor','Emergency Safety Light','Main Light Switch'],
+      safety:['Dark-room conditions should be used only for experiments requiring controlled/low-light conditions.','Avoid opening the door while cultures are light-sensitive.']},
+    {id:'hardening', short:'Hardening', name:'Hardening / Acclimatization Area', x1:28,x2:42,z1:-35,z2:-5, row:'south', floorColor:0xDCE9D6,
+      purpose:'In-vitro plantlets are gradually acclimatized to greenhouse and ambient conditions before transplanting.',
+      activities:['Wash agar from roots','Transplant into potting media','Acclimatize under high humidity, then reduce gradually'],
+      equipment:['Plant Trays','Mist / Spray System','Greenhouse Enclosure','Potting Media Station','Environmental Monitor'],
+      safety:['Increase ventilation gradually; sudden exposure can shock plantlets.']},
+    {id:'waste', short:'Waste', name:'Waste Disposal Area', x1:42,x2:50,z1:-35,z2:-5, row:'south', floorColor:0xF0DAD2,
+      purpose:'Segregated collection point for laboratory waste awaiting appropriate treatment or disposal.',
+      activities:['Segregate waste by type','Collect and label containers','Hand over for treatment or disposal'],
+      equipment:['Biological Waste','Sharps Container','Glass Waste','General Waste','Chemical Waste'],
+      safety:['Never mix waste streams; sharps and biological waste need special handling.']},
+    {id:'corridor', short:'Corridor', name:'Central Corridor', x1:-50,x2:50,z1:-5,z2:5, row:'corridor', floorColor:0xDFE3E1,
+      purpose:'Main circulation route connecting all laboratory rooms in workflow order.',
+      activities:['Move between rooms in workflow order','Locate safety equipment'],
+      equipment:['Fire Extinguisher','First Aid Kit','Emergency Stop','Emergency Exit'],
+      safety:['Keep the corridor clear for emergency evacuation at all times.']}
+  ];
+  var roomById = {}; ROOMS.forEach(function(r){ roomById[r.id]=r; });
+  var NORTH_ROOMS = ROOMS.filter(function(r){return r.row==='north';});
+  var SOUTH_ROOMS = ROOMS.filter(function(r){return r.row==='south';});
+
+  var INFO = {
+    laf:{name:'Laminar Air Flow Cabinet', purpose:'Provides a sterile, particle-free working zone for aseptic manipulation of plant tissue cultures.',
+      principle:'A blower pushes room air through a HEPA filter, producing a uniform stream of clean air that sweeps contaminants away from the work surface.',
+      use:'Used for all aseptic transfers: excising explants, subculturing callus, and handling shoots or roots outside their sterile containers.',
+      safety:'Never work with the UV lamp on. Switch to the blower and light before starting work, and let it run several minutes before use.'},
+    autoclave:{name:'Autoclave', purpose:'Sterilizes culture media, glassware and instruments using saturated steam under pressure.',
+      principle:'Raising pressure in a sealed chamber raises the boiling point of water, so steam reaches about 121°C, hot enough to kill microorganisms and spores.',
+      use:'Media bottles, tips and tools are loaded and run through a heat, pressure, hold and cool cycle, then removed once pressure returns to zero.',
+      safety:'Never open the door until pressure reaches zero. Use heat-resistant gloves when unloading and keep the vent clear. (This simulation only illustrates the cycle.)'},
+    hotairoven:{name:'Hot Air Oven', purpose:'Dry-sterilizes glassware and metal instruments that steam would corrode or that must stay dry.',
+      principle:'Circulates heated air at high temperature for an extended hold time, destroying microorganisms by oxidation rather than moist heat.',
+      use:'Empty, dry glass pipettes, petri dishes and metal tools are baked, typically around 160–180°C for one to two hours.',
+      safety:'Let items cool before handling; never load wet glassware, since rapid heating can crack it.'},
+    balance:{name:'Analytical / Precision Balance', purpose:'Weighs media components and chemicals precisely for accurate formulation.',
+      principle:'An internal load cell converts the weight force on the pan into an electrical signal shown as mass.',
+      use:'Used to weigh macro and micronutrients, sucrose, agar and plant growth regulators when preparing culture media.',
+      safety:'Keep the draft shield closed while weighing and avoid spilling chemicals onto the pan.'},
+    phmeter:{name:'pH Meter', purpose:'Measures the acidity or alkalinity of prepared culture medium before autoclaving.',
+      principle:'A glass electrode generates a voltage proportional to the hydrogen-ion concentration of the solution.',
+      use:'The probe is rinsed and dipped into the medium; pH is adjusted, typically to 5.6–5.8, with dilute acid or base.',
+      safety:'Rinse and store the electrode in storage solution; never let the glass bulb dry out or get scratched.'},
+    stirrer:{name:'Magnetic Stirrer / Hot Plate', purpose:'Mixes and, when needed, gently heats solutions while dissolving media components.',
+      principle:'A rotating magnetic field spins a small stir bar inside the vessel; an integrated hot plate can add heat.',
+      use:'Used to dissolve agar and other components evenly while preparing a batch of culture medium.',
+      safety:'Use tongs or heat gloves near the hot-plate surface, and confirm the stir bar is removed before pouring.'},
+    waterbath:{name:'Water Bath', purpose:'Holds media or reagents at a stable, gentle temperature.',
+      principle:'Electrically heated water surrounds vessels and transfers heat evenly without direct flame contact.',
+      use:'Keeps molten agar medium liquid before it is dispensed into culture vessels.',
+      safety:'Keep the water level topped up and avoid splashing water into open media containers.'},
+    microwave:{name:'Microwave / Heating Unit', purpose:'Quickly melts solidified agar medium and warms solutions.',
+      principle:'Microwave radiation agitates water molecules in the medium, heating it from within.',
+      use:'Used to re-melt stored agar medium before dispensing; never for sterilizing.',
+      safety:'Loosen caps before heating, use heat gloves, and swirl gently to avoid superheated eruptions.'},
+    rosystem:{name:'RO / DI Water System', purpose:'Supplies purified water for rinsing glassware and formulating culture media.',
+      principle:'Reverse osmosis and deionization remove dissolved salts and ions that could interfere with tissue culture.',
+      use:'Provides the base water for all stock solutions and media, and the final rinse for glassware.',
+      safety:'Do not draw water for drinking; replace filter cartridges on schedule to keep purity high.'},
+    fridge:{name:'Refrigerator / Freezer', purpose:'Stores stock solutions, hormones and heat-sensitive reagents at low temperature.',
+      principle:'A compressor-driven refrigeration cycle keeps the interior at a controlled cold temperature.',
+      use:'Stock nutrient and hormone solutions are kept chilled between preparation sessions to slow degradation.',
+      safety:'Label all stored solutions with contents and date; never store food alongside laboratory chemicals.'},
+    microscope:{name:'Microscope', purpose:'Allows close inspection of explants, callus texture and early culture development.',
+      principle:'Lenses magnify light passing through or reflecting off the specimen onto the eye or a camera.',
+      use:'Used to check contamination, tissue viability and the developmental stage of small cultures.',
+      safety:'Handle optics only by the edges and cover the microscope when not in use.'},
+    centrifuge:{name:'Centrifuge', purpose:'Separates components of a liquid sample by density.',
+      principle:'Rapid spinning produces centrifugal force that drives denser material outward and downward.',
+      use:'Used occasionally to prepare or clarify solutions for specialized culture protocols.',
+      safety:'Always balance opposite tubes and keep the lid closed until the rotor has fully stopped.'},
+    shaker:{name:'Orbital Shaker', purpose:'Keeps liquid suspension cultures aerated and evenly mixed.',
+      principle:'An orbital or reciprocating motion continuously agitates flasks on the platform.',
+      use:'Used for cell suspension cultures or to keep liquid media in gentle, continuous motion.',
+      safety:'Secure flasks with clamps before starting and avoid overloading the platform.'},
+    micropipette:{name:'Micropipette Set', purpose:'Transfers small, precise volumes of liquid such as hormone stock solutions.',
+      principle:'A piston draws and dispenses a calibrated volume of liquid into a disposable tip.',
+      use:'Used when preparing media to add microlitre to millilitre quantities of plant growth regulators.',
+      safety:'Never lay down a filled pipette, and use a fresh tip each time to avoid cross-contamination.'},
+    instruments:{name:'Sterile Instruments (Forceps, Scalpel, Needles)', purpose:'Cut, hold and transfer plant tissue during aseptic work.',
+      principle:'Metal tools are sterilized by autoclaving or dry heat, then briefly flamed or dipped in alcohol between uses.',
+      use:'Forceps hold explants, scalpels trim tissue, and needles tease apart callus or shoots.',
+      safety:'Handle sharp tools by the handle, never point them at yourself or others, and discard blades in the sharps bin.'},
+    burner:{name:'Spirit Lamp / Alcohol Burner', purpose:'Creates a small flame zone for flaming instruments during aseptic transfer.',
+      principle:'Burning alcohol gives a clean, low-soot flame used to heat-sterilize the tips of tools.',
+      use:'Forceps and scalpels are passed through the flame between cuts to reduce contamination risk.',
+      safety:'Keep away from alcohol-soaked swabs and never leave a lit burner unattended.'},
+    cultureracks:{name:'Culture Racks', purpose:'Hold culture vessels in an organized, well-lit, space-efficient arrangement.',
+      principle:'Open shelving with even light exposure supports consistent growth across the rack.',
+      use:'Vessels are grouped by stage: explant culture, callus culture, shoot multiplication and rooting.',
+      safety:'Handle vessels gently and avoid unnecessary disturbance of cultures once placed.'},
+    growthlights:{name:'Growth Lights', purpose:'Provide the controlled light and photoperiod that plant cultures need to grow.',
+      principle:'LED or fluorescent tubes supply a set light intensity on a timer to mimic day-length cycles.',
+      use:'Positioned above culture shelves and commonly run on a 16-hour light, 8-hour dark cycle.',
+      safety:'Avoid staring at lit fixtures for long periods; check timer settings after any power interruption.'},
+    envmonitor:{name:'Environmental Monitor', purpose:'Tracks temperature and humidity to confirm the room stays in its target range.',
+      principle:'Electronic sensors continuously sample air temperature and relative humidity and display the readings.',
+      use:'Checked regularly to confirm conditions (commonly about 25°C and 50–60% RH for the culture room) stay stable.',
+      safety:'Report out-of-range readings promptly so HVAC or lighting problems can be fixed quickly.'},
+    hvac:{name:'HVAC / Air Conditioning', purpose:'Maintains stable temperature and filtered air quality in the culture and transfer areas.',
+      principle:'A central system conditions and circulates filtered air, offsetting heat from lights and equipment.',
+      use:'Runs continuously to hold the culture and transfer rooms inside their target temperature range.',
+      safety:'Keep vents unobstructed and report unusual noise or temperature drift promptly.'},
+    sink:{name:'Laboratory Sink', purpose:'Provides water for washing glassware, hands and general lab cleanup.',
+      principle:'A plumbed basin with hot and cold supply and drainage, sized for laboratory-scale washing.',
+      use:'Rinsing glassware after washing, and hand-washing near entry points.',
+      safety:'Keep the floor around the sink dry to avoid slips; never pour concentrated chemicals down the drain.'},
+    ppestation:{name:'PPE Station', purpose:'Provides personal protective equipment before entering working areas of the lab.',
+      principle:'A stocked station keeps lab coats, gloves, masks and goggles accessible at the point of entry.',
+      use:'Put on a lab coat, gloves, mask and eye protection here before going into the working lab.',
+      safety:'Replace used disposable PPE after every session; never reuse gloves between clean and dirty tasks.'},
+    mist:{name:'Mist / Spray System', purpose:'Maintains high humidity around newly acclimatized plantlets.',
+      principle:'A timed nozzle system releases a fine water mist that slows water loss while plants adjust to ex-vitro conditions.',
+      use:'Runs on a schedule over hardening trays until plantlets develop a working cuticle and root system.',
+      safety:'Avoid over-misting, which can encourage fungal growth on tender plantlets.'},
+    plantstages:{name:'Plantlet Transition Tables', purpose:'Show the path from in-vitro plantlet to hardened plant.',
+      principle:'Plantlets move from sealed vessels to humid trays, then to open benches, with humidity reduced step by step.',
+      use:'Left to right: in-vitro plantlets in vessels, acclimatizing plantlets under mist, then hardened potted plants.',
+      safety:'Rinse all agar from roots before transplanting; leftover medium invites fungal and bacterial growth.'},
+    potting:{name:'Potting Media Station', purpose:'Holds sterile potting mix, pots and trays for transplanting plantlets.',
+      principle:'A light, well-drained mix (for example peat and perlite) supports young roots while holding moisture.',
+      use:'Plantlets are rinsed, planted into small pots filled with this mix, and moved to the humidity area.',
+      safety:'Wear a mask when handling dry peat or perlite dust and wash hands afterwards.'},
+    darkroomlight:{name:'Dark Room Main Light Switch', purpose:'Controls the only bright light source in the dark room.',
+      principle:'A single switched circuit lets staff light the room for maintenance without leaving it lit by default.',
+      use:'Switch on only when you need full light for restocking or cleaning, then off again before leaving.',
+      safety:'Confirm no light-sensitive cultures are mid-protocol before switching the main light on.'},
+    fireext:{name:'Fire Extinguisher', purpose:'Provides first-response fire suppression for small laboratory fires.',
+      principle:'A pressurized agent (commonly CO₂ or dry chemical) discharges to smother flames and cut off oxygen.',
+      use:'Pull the pin, aim at the base of the fire, squeeze the handle, and sweep side to side.',
+      safety:'Only fight small, contained fires; evacuate and call for help if a fire grows.'},
+    firstaid:{name:'First Aid Kit', purpose:'Provides immediate treatment for minor cuts, burns and chemical splashes.',
+      principle:'A stocked kit of dressings, antiseptic and burn care enables prompt first response.',
+      use:'Used to treat minor injuries immediately and to stabilize a person before professional medical care.',
+      safety:'Report every use so supplies are restocked, and seek medical attention for anything beyond a minor injury.'},
+    estop:{name:'Emergency Stop', purpose:'Cuts power to major laboratory equipment in an emergency.',
+      principle:'A latching red mushroom button opens the control circuit and stays pressed until deliberately reset.',
+      use:'Press in the event of fire, electrical fault or equipment emergency, then evacuate and report.',
+      safety:'Know where it is before you need it, and never block access to it. (Representation only in this simulation.)'},
+    eyewash:{name:'Safety Shower & Eyewash', purpose:'Flushes chemicals from the eyes or body after a splash.',
+      principle:'Pulling the handle releases a high-volume stream of clean water for continuous rinsing.',
+      use:'Use immediately after a chemical splash and rinse for at least 15 minutes while calling for help.',
+      safety:'Keep the path clear, and never store anything beneath the shower head.'}
+  };
+
+  var STORAGE_CATEGORIES = [
+    {id:'stor_chem', label:'CHEMICALS', contents:'General laboratory chemicals that need no special hazard segregation: buffers, salts, indicators.'},
+    {id:'stor_glass', label:'GLASSWARE', contents:'Spare flasks, beakers, measuring cylinders and culture bottles.'},
+    {id:'stor_media', label:'MEDIA COMPONENTS', contents:'MS macro and micronutrient stocks, vitamins, sucrose and agar.'},
+    {id:'stor_pgr', label:'PLANT GROWTH REGULATORS', contents:'Auxin and cytokinin stock solutions, for example IAA, NAA, BAP and kinetin.'},
+    {id:'stor_consumables', label:'CONSUMABLES', contents:'Pipette tips, parafilm, sealing film, labels and markers.'},
+    {id:'stor_ppe', label:'PPE', contents:'Spare lab coats, nitrile gloves, masks and safety goggles.'},
+    {id:'stor_sterile', label:'STERILE MATERIALS', contents:'Pre-sterilized filter units, sterile swabs and wrapped instruments.'},
+    {id:'stor_vessels', label:'CULTURE VESSELS', contents:'Empty culture jars, tissue-culture boxes and screw-cap tubes.'},
+    {id:'stor_cleaning', label:'CLEANING SUPPLIES', contents:'Detergent, 70% ethanol, surface disinfectant and brushes.'}
+  ];
+  STORAGE_CATEGORIES.forEach(function(c){
+    INFO[c.id] = {name:'Storage Cabinet — '+c.label,
+      purpose:'Section of the Storage Room set aside for '+c.label.toLowerCase()+'.',
+      principle:'Enclosed, labeled shelving keeps this category separate from other supplies and protected from dust.',
+      use:'Typical contents: '+c.contents,
+      safety:'Return items to this labeled section after use so inventory stays accurate.'};
+  });
+  var CHEM_CATEGORIES = [
+    {id:'chem_acid', label:'ACIDS', color:0xD9695A, sign:'hazard', contents:'Hydrochloric acid, dilute acids used for pH adjustment.'},
+    {id:'chem_base', label:'BASES', color:0x5C8FD6, sign:'hazard', contents:'Sodium hydroxide and other bases used for pH adjustment.'},
+    {id:'chem_general', label:'GENERAL CHEMICALS', color:0x9AA39F, sign:null, contents:'Salts and general reagents that need no special segregation.'},
+    {id:'chem_pgr', label:'PLANT GROWTH REGULATORS', color:0x58B07A, sign:null, contents:'Auxin and cytokinin powders, kept dry and labeled.'},
+    {id:'chem_clean', label:'CLEANING / DISINFECTANTS', color:0xE0A24A, sign:'hazard', contents:'Bleach, ethanol and surface disinfectants.'}
+  ];
+  CHEM_CATEGORIES.forEach(function(c){
+    INFO[c.id] = {name:'Chemical Cabinet — '+c.label,
+      purpose:'Lockable, hazard-segregated storage for '+c.label.toLowerCase()+'.',
+      principle:'Keeping incompatible chemical classes physically apart, on spill-containment trays, prevents dangerous reactions if a container leaks.',
+      use:'Typical contents: '+c.contents+' Retrieve only the quantity needed for one preparation.',
+      safety:'Never store acids and bases together; check labels and expiry dates before use.'};
+  });
+  var WASTE_BINS = [
+    {id:'waste_bio', label:'BIOLOGICAL WASTE', color:0xC0562A, r:0.55, h:1.3},
+    {id:'waste_sharps', label:'SHARPS', color:0xE0C23A, r:0.4, h:1.0},
+    {id:'waste_glass', label:'GLASS WASTE', color:0x3E7FB0, r:0.55, h:1.3},
+    {id:'waste_general', label:'GENERAL WASTE', color:0x555F5A, r:0.55, h:1.3},
+    {id:'waste_chem', label:'CHEMICAL WASTE', color:0x7A4EA6, r:0.5, h:1.2}
+  ];
+  WASTE_BINS.forEach(function(w){
+    INFO[w.id] = {name:'Waste Container — '+w.label,
+      purpose:'Collects '+w.label.toLowerCase()+' for the correct treatment and disposal route.',
+      principle:'Color-coded, labeled containers keep waste streams separate at the point of disposal.',
+      use:'Workflow: used material, then segregation, then collection, then appropriate treatment or disposal.',
+      safety:'Never mix waste streams; sharps and biological waste need autoclaving or licensed disposal.'};
+  });
+
+  var LEARNING_SEQUENCE = [
+    {room:'entry', target:'ppestation', note:'Put on PPE and orient yourself before entering the working lab.'},
+    {room:'handwash', target:'sink', note:'Wash hands and finish putting on PPE before touching any equipment.'},
+    {room:'washing', target:'sink', note:'Used glassware is washed and dried here, dirty side to clean side.'},
+    {room:'mediaprep', target:'balance', note:'Weigh, dissolve and pH-adjust culture medium, then dispense it.'},
+    {room:'sterilization', target:'autoclave', note:'Sterilize media and instruments before any aseptic work. Try the autoclave.'},
+    {room:'transfer', target:'laf', note:'Aseptic transfer happens under the laminar air flow cabinet. Try turning it on.'},
+    {room:'culture', target:'cultureracks', note:'Cultures progress from explant to callus, shoot and root under controlled conditions.'},
+    {room:'hardening', target:'plantstages', note:'Plantlets are acclimatized step by step before transplanting out.'}
+  ];
+
+  /* ============================================================
+     MODULE: scene, camera, renderer
+  ============================================================ */
+  var container = document.getElementById('canvas-container');
+  var scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xC9D6D0);
+  scene.fog = new THREE.Fog(0xC9D6D0, 60, 130);
+
+  var camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 400);
+  camera.rotation.order = 'YXZ';
+  camera.position.set(-46, EYE_H, 20);
+  camera.rotation.y = -Math.PI/2;
+
+  var renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1, 1.75));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
+  container.appendChild(renderer.domElement);
+
+  var clock = new THREE.Clock();
+  var raycaster = new THREE.Raycaster();
+  var wallsGroup = new THREE.Group(); scene.add(wallsGroup);
+  var doorsGroup = new THREE.Group(); scene.add(doorsGroup);
+  var roomsGroup = new THREE.Group(); scene.add(roomsGroup);
+  var equipmentGroup = new THREE.Group(); scene.add(equipmentGroup);
+  var signsGroup = new THREE.Group(); scene.add(signsGroup);
+
+  var interactables = [];
+  var collisionSegments = [];
+  var colliders = [];
+  var DOOR_REGISTRY = {};
+  var DOORWAYS = [];
+  var CABINETS = {};
+  var rootsById = {};
+
+  /* ============================================================
+     MODULE: lighting (shared point lights per zone + one shadow light)
+  ============================================================ */
+  var ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  scene.add(ambientLight);
+  var sunLight = new THREE.DirectionalLight(0xfff3d6, 0.5);
+  sunLight.castShadow = true;
+  sunLight.shadow.mapSize.set(1024,1024);
+  sunLight.shadow.camera.left = -26; sunLight.shadow.camera.right = 26;
+  sunLight.shadow.camera.top = 26; sunLight.shadow.camera.bottom = -26;
+  sunLight.shadow.camera.near = 1; sunLight.shadow.camera.far = 90;
+  sunLight.shadow.bias = -0.002;
+  scene.add(sunLight); scene.add(sunLight.target);
+
+  var LIGHT_DEFS = [
+    {id:'entry', x:-37.5, z:20, range:44, base:1.0, rooms:['entry','handwash']},
+    {id:'washing', x:-15, z:20, range:36, base:1.0, rooms:['washing']},
+    {id:'mediaprep', x:7.5, z:20, range:40, base:1.05, rooms:['mediaprep']},
+    {id:'steril', x:27.5, z:20, range:34, base:1.0, rooms:['sterilization']},
+    {id:'transfer', x:42.5, z:20, range:34, base:1.1, rooms:['transfer']},
+    {id:'storage', x:-30.5, z:-20, range:50, base:0.95, rooms:['storage','chemstorage','inststorage']},
+    {id:'culture', x:3, z:-20, range:42, base:1.0, rooms:['culture']},
+    {id:'dark', x:22.5, z:-20, range:26, base:0, rooms:['darkroom']},
+    {id:'hard', x:39, z:-20, range:40, base:0.95, rooms:['hardening','waste']},
+    {id:'corridor', x:0, z:0, range:64, base:0.6, rooms:['corridor']}
+  ];
+  var lightById = {};
+  LIGHT_DEFS.forEach(function(L){
+    L.light = new THREE.PointLight(0xfff1d6, L.base, L.range, 2);
+    L.light.position.set(L.x, WALL_H-0.8, L.z);
+    scene.add(L.light);
+    lightById[L.id] = L;
+    L.rooms.forEach(function(rid){ roomById[rid].lightDef = L; });
+  });
+  var emergencyLight = new THREE.PointLight(0xff3322, 0.35, 9, 2);
+  emergencyLight.position.set(26.5, 8.4, -12);
+  scene.add(emergencyLight);
+
+  /* ============================================================
+     MODULE: prop factories (all geometry is base-origin: y=0 is the bottom)
+  ============================================================ */
+  function mat(color,opts){
+    opts = opts||{};
+    return new THREE.MeshStandardMaterial({
+      color:color,
+      metalness: opts.metalness!==undefined?opts.metalness:0.15,
+      roughness: opts.roughness!==undefined?opts.roughness:0.7,
+      emissive: opts.emissive!==undefined?opts.emissive:0x000000,
+      emissiveIntensity: opts.emissiveIntensity!==undefined?opts.emissiveIntensity:0,
+      transparent: !!opts.transparent, opacity: opts.opacity!==undefined?opts.opacity:1,
+      depthWrite: opts.transparent ? false : true
+    });
+  }
+  function box(w,h,d,color,opts){
+    var g = new THREE.BoxGeometry(w,h,d); g.translate(0,h/2,0);
+    var m = new THREE.Mesh(g, mat(color,opts));
+    m.castShadow = !(opts&&opts.transparent); m.receiveShadow = true;
+    return m;
+  }
+  function cyl(rt,rb,h,color,opts){
+    var g = new THREE.CylinderGeometry(rt,rb,h,16); g.translate(0,h/2,0);
+    opts = opts||{};
+    if(opts.metalness===undefined) opts.metalness=0.25;
+    var m = new THREE.Mesh(g, mat(color,opts));
+    m.castShadow = !opts.transparent; m.receiveShadow = true;
+    return m;
+  }
+  function sph(r,color,opts){
+    var m = new THREE.Mesh(new THREE.SphereGeometry(r,12,8), mat(color,opts));
+    m.castShadow = true; return m;
+  }
+  function at(m,x,y,z){ m.position.set(x,y,z); return m; }
+  function grp(x,z,parts){
+    var g = new THREE.Group(); g.position.set(x,0,z);
+    for(var i=0;i<parts.length;i++) g.add(parts[i]);
+    equipmentGroup.add(g);
+    return g;
+  }
+  function addTo(parent,x,y,z,parts){
+    var g = new THREE.Group(); g.position.set(x,y,z);
+    for(var i=0;i<parts.length;i++) g.add(parts[i]);
+    parent.add(g); return g;
+  }
+  function linspace(a,b,n){ if(n===1) return [(a+b)/2]; var arr=[]; for(var i=0;i<n;i++) arr.push(a+(b-a)*i/(n-1)); return arr; }
+  function roundRect(ctx,x,y,w,h,r){
+    ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+    ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+  }
+  function canvasTexture(w,h,drawFn){
+    var c = document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx = c.getContext('2d'); drawFn(ctx,w,h);
+    var t = new THREE.CanvasTexture(c); t.needsUpdate = true;
+    return {tex:t, ctx:ctx, canvas:c, w:w, h:h};
+  }
+  function fitText(ctx,text,maxW,startSize,weight,family){
+    var size = startSize;
+    do{ ctx.font = weight+' '+size+'px '+family; size -= 2; }while(ctx.measureText(text).width > maxW && size > 12);
+  }
+  function labelSprite(text,bg,fg,sx,sy){
+    var r = canvasTexture(640,160,function(ctx,w,h){
+      ctx.clearRect(0,0,w,h);
+      roundRect(ctx,6,28,w-12,h-56,16); ctx.fillStyle = bg||'rgba(10,20,17,0.68)'; ctx.fill();
+      ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillStyle = fg||'#EAF3EF';
+      fitText(ctx,text,w-50,50,'700','"IBM Plex Sans", sans-serif');
+      ctx.fillText(text, w/2, h/2+2);
+    });
+    var spr = new THREE.Sprite(new THREE.SpriteMaterial({map:r.tex, transparent:true}));
+    spr.scale.set(sx||9.5, sy||2.4, 1);
+    return spr;
+  }
+  function signPlane(w,h,drawFn,pxPerFt){
+    var k = pxPerFt||90;
+    var r = canvasTexture(Math.round(w*k), Math.round(h*k), drawFn);
+    var m = new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshBasicMaterial({map:r.tex, transparent:true, side:THREE.DoubleSide}));
+    m.userData.canvasRef = r;
+    return m;
+  }
+  function mountOnWall(mesh,x,y,z,ry){ mesh.position.set(x,y,z); mesh.rotation.y = ry; signsGroup.add(mesh); return mesh; }
+
+  function hazardSign(text,kind){
+    var palette = {hazard:'#E2C23A', bio:'#C0562A', hot:'#E2864F', uv:'#9B6CE0', elec:'#E2C23A', exit:'#2E9E5B', fire:'#D24B4B', ppe:'#3FB58C', firstaid:'#3FB58C', sharps:'#E2C23A', food:'#D24B4B'};
+    var c = palette[kind] || '#E2C23A';
+    return signPlane(1.6,1.6,function(ctx,w,h){
+      ctx.clearRect(0,0,w,h);
+      ctx.fillStyle='#12201A'; roundRect(ctx,4,4,w-8,h-8,14); ctx.fill();
+      ctx.strokeStyle=c; ctx.lineWidth=7; roundRect(ctx,10,10,w-20,h-20,12); ctx.stroke();
+      ctx.fillStyle=c; ctx.strokeStyle=c;
+      var cx=w/2, cy=h*0.4;
+      if(kind==='fire'){
+        ctx.beginPath(); ctx.arc(cx,cy,h*0.14,0,Math.PI*2); ctx.fill(); ctx.fillRect(cx-h*0.035,cy,h*0.07,h*0.24);
+      } else if(kind==='exit'){
+        ctx.beginPath(); ctx.moveTo(w*0.26,cy); ctx.lineTo(w*0.55,cy-h*0.17); ctx.lineTo(w*0.55,cy-h*0.07);
+        ctx.lineTo(w*0.76,cy-h*0.07); ctx.lineTo(w*0.76,cy+h*0.07); ctx.lineTo(w*0.55,cy+h*0.07); ctx.lineTo(w*0.55,cy+h*0.17); ctx.closePath(); ctx.fill();
+      } else if(kind==='bio'){
+        for(var a=0;a<3;a++){ ctx.beginPath(); ctx.arc(cx+Math.cos(a*2.094+0.5)*h*0.13, cy+Math.sin(a*2.094+0.5)*h*0.13, h*0.09,0,Math.PI*2); ctx.fill(); }
+        ctx.fillStyle='#12201A'; ctx.beginPath(); ctx.arc(cx,cy,h*0.05,0,Math.PI*2); ctx.fill();
+      } else if(kind==='firstaid'){
+        ctx.fillRect(cx-h*0.06,cy-h*0.18,h*0.12,h*0.36); ctx.fillRect(cx-h*0.18,cy-h*0.06,h*0.36,h*0.12);
+      } else if(kind==='elec'){
+        ctx.beginPath(); ctx.moveTo(cx+h*0.05,cy-h*0.2); ctx.lineTo(cx-h*0.1,cy+h*0.02); ctx.lineTo(cx,cy+h*0.02); ctx.lineTo(cx-h*0.05,cy+h*0.2); ctx.lineTo(cx+h*0.12,cy-h*0.04); ctx.lineTo(cx+h*0.02,cy-h*0.04); ctx.closePath(); ctx.fill();
+      } else if(kind==='sharps'){
+        ctx.beginPath(); ctx.moveTo(cx,cy-h*0.2); ctx.lineTo(cx+h*0.18,cy+h*0.15); ctx.lineTo(cx-h*0.18,cy+h*0.15); ctx.closePath(); ctx.fill();
+        ctx.fillStyle='#12201A'; ctx.fillRect(cx-h*0.015,cy-h*0.08,h*0.03,h*0.17);
+      } else if(kind==='uv'){
+        ctx.beginPath(); ctx.arc(cx,cy,h*0.16,0,Math.PI*2); ctx.fill();
+        for(var r=0;r<8;r++){ var an=r*Math.PI/4; ctx.fillRect(cx+Math.cos(an)*h*0.21-3, cy+Math.sin(an)*h*0.21-3, 6,6); }
+      } else if(kind==='food'){
+        ctx.lineWidth=7; ctx.beginPath(); ctx.arc(cx,cy,h*0.17,0,Math.PI*2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cx-h*0.12,cy-h*0.12); ctx.lineTo(cx+h*0.12,cy+h*0.12); ctx.stroke();
+      } else {
+        ctx.beginPath(); ctx.moveTo(cx,cy-h*0.2); ctx.lineTo(cx+h*0.2,cy+h*0.15); ctx.lineTo(cx-h*0.2,cy+h*0.15); ctx.closePath(); ctx.fill();
+        ctx.fillStyle='#12201A'; ctx.font='700 '+Math.round(h*0.2)+'px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText('!', cx, cy+h*0.05);
+      }
+      ctx.fillStyle=c; ctx.textAlign='center'; ctx.textBaseline='middle';
+      fitText(ctx,text.toUpperCase(),w-36,Math.round(h*0.11),'700','"IBM Plex Sans", sans-serif');
+      ctx.fillText(text.toUpperCase(), w/2, h*0.82);
+    });
+  }
+  function floorDecal(x,z,w,d,text,fg,bg,rot){
+    var m = signPlane(w,d,function(ctx,cw,ch){
+      ctx.clearRect(0,0,cw,ch);
+      ctx.fillStyle=bg; roundRect(ctx,2,2,cw-4,ch-4,10); ctx.fill();
+      ctx.fillStyle=fg; ctx.textAlign='center'; ctx.textBaseline='middle';
+      fitText(ctx,text,cw-24,Math.floor(ch*0.45),'700','"IBM Plex Sans", sans-serif');
+      ctx.fillText(text,cw/2,ch/2+1);
+    },60);
+    m.rotation.set(-Math.PI/2,0,rot||0); m.position.set(x,0.03,z);
+    signsGroup.add(m); return m;
+  }
+  function screenPlane(w,h,cw,ch,drawFn){
+    var r = canvasTexture(cw,ch,drawFn);
+    var m = new THREE.Mesh(new THREE.PlaneGeometry(w,h), new THREE.MeshBasicMaterial({map:r.tex}));
+    m.userData.canvasRef = r; m.userData.noCollide = true;
+    return m;
+  }
+  function hitBox(w,h,d,x,y,z){
+    var m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshBasicMaterial({visible:false, side:THREE.DoubleSide}));
+    m.position.set(x,y,z); m.userData.noCollide = true; return m;
+  }
+
+  /* ---------- interaction tagging + collision registration ---------- */
+  function meshBounds(g,maxMinY){
+    g.updateMatrixWorld(true);
+    var b = new THREE.Box3(), any=false;
+    g.traverse(function(o){
+      if(o.isMesh && !o.userData.noCollide){
+        var mb = new THREE.Box3().setFromObject(o);
+        if(mb.min.y < maxMinY){ if(!any){ b.copy(mb); any=true; } else { b.union(mb); } }
+      }
+    });
+    return any ? b : null;
+  }
+  function solid(g){
+    var b = meshBounds(g,4.5);
+    if(!b) return;
+    var sx=b.max.x-b.min.x, sz=b.max.z-b.min.z;
+    if(sx>0.6 || sz>0.6) colliders.push({minx:b.min.x,maxx:b.max.x,minz:b.min.z,maxz:b.max.z});
+  }
+  function tag(g,id,opts){
+    opts = opts||{};
+    g.userData.rootId = id; g.userData.meshes = g.userData.meshes||[];
+    g.traverse(function(o){
+      if((o.isMesh||o.isSprite) && !o.userData.interactId){
+        o.userData.interactId = id; o.userData.root = g;
+        if(o.isMesh) g.userData.meshes.push(o);
+      }
+    });
+    if(!opts.noPush) interactables.push(g);
+    (rootsById[id]=rootsById[id]||[]).push(g);
+    if(!opts.noSolid) solid(g);
+    return g;
+  }
+
+  /* ---------- reusable furniture / glassware ---------- */
+  function bench(x,z,len,depth,rotY){
+    var top = box(len+0.1,0.2,depth+0.1,0x2F3836,{roughness:0.35,metalness:0.3}); top.position.y = 2.8;
+    var g = grp(x,z,[box(len,2.8,depth,0xC9D2CE,{roughness:0.6}), top]);
+    if(rotY) g.rotation.y = rotY;
+    solid(g);
+    return g;
+  }
+  function shelfUnit(w,h,d,levels,color){
+    var parts=[];
+    [[-w/2+0.05,-d/2+0.05],[w/2-0.05,-d/2+0.05],[-w/2+0.05,d/2-0.05],[w/2-0.05,d/2-0.05]].forEach(function(p){
+      parts.push(at(box(0.1,h,0.1,0x7D8B86,{}),p[0],0,p[1]));
+    });
+    for(var i=0;i<levels;i++){
+      parts.push(at(box(w,0.08,d,color||0xC9D2CE,{}),0,0.25+i*((h-0.4)/(levels-1||1)),0));
+    }
+    return parts;
+  }
+  function flask(h,col){
+    var g = new THREE.Group();
+    g.add(cyl(0.09,0.3,h*0.7,col||0xBFE0D8,{transparent:true,opacity:0.55,roughness:0.1,metalness:0}));
+    g.add(at(cyl(0.085,0.085,h*0.3,col||0xBFE0D8,{transparent:true,opacity:0.55,roughness:0.1,metalness:0}),0,h*0.7,0));
+    g.add(cyl(0.2,0.28,h*0.25,0xE9DC8A,{transparent:true,opacity:0.6,roughness:0.3,metalness:0}));
+    return g;
+  }
+  function beaker(r,h){ return cyl(r,r,h,0xCDE6E0,{transparent:true,opacity:0.5,roughness:0.1,metalness:0}); }
+  function reagentBottle(color){
+    var g = new THREE.Group();
+    g.add(cyl(0.2,0.2,0.7,color||0x7A4A22,{metalness:0.05,roughness:0.5}));
+    g.add(at(cyl(0.09,0.09,0.15,0x1f2624,{}),0,0.7,0));
+    return g;
+  }
+  function mediaBottle(){
+    var g = new THREE.Group();
+    g.add(cyl(0.22,0.22,0.6,0xDFF1EA,{transparent:true,opacity:0.5,roughness:0.1,metalness:0}));
+    g.add(cyl(0.2,0.2,0.28,0xE9DC8A,{transparent:true,opacity:0.7,metalness:0}));
+    g.add(at(cyl(0.12,0.12,0.12,0x2f6f9f,{}),0,0.6,0));
+    return g;
+  }
+  function makeBin(color,r,h){
+    var g = new THREE.Group();
+    g.add(cyl(r*0.82,r,h,color,{metalness:0.1}));
+    g.add(at(cyl(r*1.02,r*1.02,0.12,color,{metalness:0.1}),0,h,0));
+    g.add(at(box(r*0.7,0.04,0.14,0x111111,{}),0,h+0.12,0));
+    return g;
+  }
+
+  /* ---------- hinged cabinet ---------- */
+  function buildCabinet(id,x,z,w,h,d,bodyColor,doorColor,labelText,labelFg,opts){
+    opts = opts||{};
+    var g = new THREE.Group(); g.position.set(x,opts.lift||0,z);
+    equipmentGroup.add(g);
+    g.add(at(box(w,h,0.06,bodyColor,{}),0,0,-d/2+0.03));
+    g.add(at(box(0.06,h,d,bodyColor,{}),-w/2+0.03,0,0));
+    g.add(at(box(0.06,h,d,bodyColor,{}), w/2-0.03,0,0));
+    g.add(at(box(w,0.06,d,bodyColor,{}),0,h-0.06,0));
+    g.add(at(box(w,0.06,d,bodyColor,{}),0,0,0));
+    g.add(at(box(w-0.1,0.04,d-0.1,0xD8DEDB,{}),0,h*0.5,0));
+    var cols = opts.contents || [0x7A4A22,0xDDE6E3,0x6B8E9F,0xC9A25A];
+    for(var i=0;i<4;i++){
+      var item = box(w*0.18,h*0.14+(i%2)*h*0.04,d*0.45,cols[i%cols.length],{});
+      item.position.set(-w*0.3+i*w*0.2, (i<2?0.06:h*0.5+0.04), 0);
+      g.add(item);
+    }
+    var pivL = new THREE.Group(); pivL.position.set(-w/2+0.02,0,d/2);
+    var pivR = new THREE.Group(); pivR.position.set(w/2-0.02,0,d/2);
+    var dl = at(box(w/2-0.03,h-0.1,0.05,doorColor,{}),w/4-0.015,0.05,0);
+    var dr = at(box(w/2-0.03,h-0.1,0.05,doorColor,{}),-(w/4-0.015),0.05,0);
+    pivL.add(dl); pivR.add(dr);
+    var hl = at(cyl(0.025,0.025,0.4,0x666666,{}),w/2-0.12,h*0.5-0.2,0.05); pivL.add(hl);
+    var hr = at(cyl(0.025,0.025,0.4,0x666666,{}),-(w/2-0.12),h*0.5-0.2,0.05); pivR.add(hr);
+    if(opts.lock){ pivR.add(at(cyl(0.05,0.05,0.04,0xC9A25A,{}),-(w/2-0.18),h*0.5+0.25,0.04)); }
+    if(opts.sign){
+      var sg = hazardSign('','hazard'); sg.scale.set(0.38,0.38,1); sg.position.set(w/4-0.015,h*0.5+0.9,0.04); pivL.add(sg);
+    }
+    g.add(pivL); g.add(pivR);
+    if(labelText){
+      var lbl = labelSprite(labelText,'rgba(10,20,17,0.78)',labelFg||'#8FE6C4',opts.lw||3.4,opts.lh||0.85);
+      lbl.position.set(0,h+0.55,0); g.add(lbl);
+    }
+    g.userData.cabinet = {pivL:pivL,pivR:pivR,open:false,cur:0,target:0};
+    CABINETS[id] = g;
+    tag(g,id);
+    return g;
+  }
+  function setCabinet(id,open){
+    var g = CABINETS[id]; if(!g) return;
+    g.userData.cabinet.open = open; g.userData.cabinet.target = open ? 1.9 : 0;
+  }
+
+  /* ============================================================
+     MODULE: geometry — walls, doorways, floors, ceiling
+  ============================================================ */
+  var wallMat = new THREE.MeshStandardMaterial({color:0xF4F5F2, roughness:0.92, metalness:0.02});
+  function buildWallBox(x1,z1,x2,z2,y0,y1){
+    y0 = y0||0; y1 = (y1===undefined)?WALL_H:y1;
+    var len = Math.hypot(x2-x1,z2-z1); if(len<0.02) return;
+    var horizontal = Math.abs(x1-x2) >= Math.abs(z1-z2);
+    var h = y1-y0;
+    var geo = horizontal ? new THREE.BoxGeometry(len,h,WALL_T) : new THREE.BoxGeometry(WALL_T,h,len);
+    var m = new THREE.Mesh(geo,wallMat);
+    m.position.set((x1+x2)/2, y0+h/2, (z1+z2)/2);
+    m.receiveShadow = true; m.castShadow = true;
+    wallsGroup.add(m);
+  }
+  function addSeg(x1,z1,x2,z2){ collisionSegments.push({x1:x1,z1:z1,x2:x2,z2:z2}); }
+
+  function registerDoor(id,label,gx1,gz1,gx2,gz2,color){
+    var horizontal = Math.abs(gx2-gx1) >= Math.abs(gz2-gz1);
+    var xc=(gx1+gx2)/2, zc=(gz1+gz2)/2;
+    var w = horizontal ? Math.abs(gx2-gx1) : WALL_T*1.6;
+    var d = horizontal ? WALL_T*1.6 : Math.abs(gz2-gz1);
+    var mesh = new THREE.Mesh(new THREE.BoxGeometry(w,DOOR_H,d), mat(color||0x2E7D6B,{metalness:0.3,roughness:0.55}));
+    var openY = WALL_H + DOOR_H/2 + 0.3;
+    mesh.position.set(xc,openY,zc);
+    mesh.userData.doorId = id; mesh.userData.root = mesh; mesh.userData.meshes = [mesh];
+    mesh.castShadow = true;
+    doorsGroup.add(mesh); interactables.push(mesh);
+    DOOR_REGISTRY[id] = {mesh:mesh,label:label,open:true,closedY:DOOR_H/2,openY:openY,targetY:openY,
+      seg: horizontal ? {x1:gx1,z1:zc,x2:gx2,z2:zc} : {x1:xc,z1:gz1,x2:xc,z2:gz2}};
+  }
+  function wallWithGap(x1,z1,x2,z2,gapCenter,gapWidth,doorId,doorLabel,doorColor){
+    var horizontal = Math.abs(x1-x2) >= Math.abs(z1-z2);
+    if(horizontal){
+      var gx1=gapCenter-gapWidth/2, gx2=gapCenter+gapWidth/2;
+      buildWallBox(x1,z1,gx1,z2); buildWallBox(gx2,z1,x2,z2); buildWallBox(gx1,z1,gx2,z2,DOOR_H,WALL_H);
+      addSeg(x1,z1,gx1,z2); addSeg(gx2,z1,x2,z2);
+      DOORWAYS.push({x:gapCenter,z:z1,horizontal:true,w:gapWidth});
+      if(doorId) registerDoor(doorId,doorLabel,gx1,z1-WALL_T*0.6,gx2,z1+WALL_T*0.6,doorColor);
+    } else {
+      var gz1=gapCenter-gapWidth/2, gz2=gapCenter+gapWidth/2;
+      buildWallBox(x1,z1,x2,gz1); buildWallBox(x1,gz2,x2,z2); buildWallBox(x1,gz1,x2,gz2,DOOR_H,WALL_H);
+      addSeg(x1,z1,x2,gz1); addSeg(x1,gz2,x2,z2);
+      DOORWAYS.push({x:x1,z:gapCenter,horizontal:false,w:gapWidth});
+      if(doorId) registerDoor(doorId,doorLabel,x1-WALL_T*0.6,gz1,x1+WALL_T*0.6,gz2,doorColor);
+    }
+  }
+  function wallFull(x1,z1,x2,z2){ buildWallBox(x1,z1,x2,z2); addSeg(x1,z1,x2,z2); }
+
+  function buildAllWalls(){
+    wallFull(-50,-35,50,-35);
+    wallFull(-50,35,50,35);
+    wallWithGap(-50,-35,-50,35,20,8,'door_main','Main Entrance',0x2E7D6B);
+    wallWithGap(50,-35,50,35,0,6,null,null);            // emergency exit at corridor east end
+
+    NORTH_ROOMS.forEach(function(r){
+      var id=null,label=null;
+      if(r.id==='sterilization'){ id='door_sterilization'; label='Sterilization Room Door'; }
+      if(r.id==='transfer'){ id='door_transfer'; label='Transfer Room Door (aseptic)'; }
+      wallWithGap(r.x1,5,r.x2,5,(r.x1+r.x2)/2,6,id,label);
+    });
+    SOUTH_ROOMS.forEach(function(r){
+      var id=null,label=null,col;
+      if(r.id==='culture'){ id='door_culture'; label='Culture Room Door'; }
+      if(r.id==='darkroom'){ id='door_dark'; label='Dark Room Door (light-proof)'; col=0x151a19; }
+      wallWithGap(r.x1,-5,r.x2,-5,(r.x1+r.x2)/2,6,id,label,col);
+    });
+    var ns = NORTH_ROOMS.slice().sort(function(a,b){return a.x1-b.x1;});
+    for(var i=0;i<ns.length-1;i++){ wallWithGap(ns[i].x2,5,ns[i].x2,35,20,6,null,null); }
+    var ss = SOUTH_ROOMS.slice().sort(function(a,b){return a.x1-b.x1;});
+    for(var j=0;j<ss.length-1;j++){
+      var sealed = (ss[j].id==='darkroom' || ss[j+1].id==='darkroom' || ss[j+1].id==='waste');
+      if(sealed) wallFull(ss[j].x2,-35,ss[j].x2,-5);
+      else wallWithGap(ss[j].x2,-35,ss[j].x2,-5,-20,6,null,null);
+    }
+
+    // outer barrier so nobody wanders into the void past the emergency exit
+    addSeg(-62,-47,62,-47); addSeg(-62,47,62,47); addSeg(-62,-47,-62,47); addSeg(62,-47,62,47);
+
+    // decorative windows on the north exterior wall
+    [-15,-3,8,45].forEach(function(wx){
+      var frame = new THREE.Mesh(new THREE.PlaneGeometry(4.6,3.6), new THREE.MeshStandardMaterial({color:0xFFFFFF,roughness:0.5,side:THREE.DoubleSide}));
+      frame.position.set(wx,6,35-WALL_T/2-0.02); frame.rotation.y = Math.PI; scene.add(frame);
+      var glass = new THREE.Mesh(new THREE.PlaneGeometry(4.1,3.1), new THREE.MeshStandardMaterial({color:0x9FD6E0,transparent:true,opacity:0.5,roughness:0.15,side:THREE.DoubleSide}));
+      glass.position.set(wx,6,35-WALL_T/2-0.04); glass.rotation.y = Math.PI; scene.add(glass);
+    });
+  }
+
+  function buildFloorsAndCeiling(){
+    var ground = new THREE.Mesh(new THREE.PlaneGeometry(400,400), new THREE.MeshStandardMaterial({color:0x7D8A84,roughness:1}));
+    ground.rotation.x = -Math.PI/2; ground.position.y = -0.03; ground.receiveShadow = true; scene.add(ground);
+
+    ROOMS.forEach(function(r){
+      var w=r.x2-r.x1, d=r.z2-r.z1;
+      var floor = new THREE.Mesh(new THREE.PlaneGeometry(w,d), new THREE.MeshStandardMaterial({color:r.floorColor,roughness:0.9,metalness:0.02}));
+      floor.rotation.x = -Math.PI/2; floor.position.set((r.x1+r.x2)/2,0,(r.z1+r.z2)/2);
+      floor.receiveShadow = true; roomsGroup.add(floor);
+    });
+    var stripe = new THREE.Mesh(new THREE.PlaneGeometry(100,0.5), new THREE.MeshStandardMaterial({color:0x1F8A63,roughness:0.8}));
+    stripe.rotation.x = -Math.PI/2; stripe.position.set(0,0.015,0); roomsGroup.add(stripe);
+
+    var ceiling = new THREE.Mesh(new THREE.PlaneGeometry(100,70), new THREE.MeshStandardMaterial({color:0xF2F3F1,roughness:1,side:THREE.DoubleSide}));
+    ceiling.rotation.x = Math.PI/2; ceiling.position.set(0,WALL_H,0);
+    roomsGroup.add(ceiling);
+
+    // ceiling light fixtures (emissive panels, shared lights do the actual lighting)
+    ROOMS.forEach(function(r){
+      r.fixtures = [];
+      if(r.id==='darkroom'){
+        var f = box(1.6,0.12,1.0,0xF7F4EA,{emissive:0xfff1c9,emissiveIntensity:0});
+        f.position.set(22.5,WALL_H-0.45,-20); f.castShadow=false; scene.add(f); r.fixtures.push(f); return;
+      }
+      var w=r.x2-r.x1, d=r.z2-r.z1;
+      var nx=Math.max(1,Math.round(w/12)), nz=Math.max(1,Math.round(d/14));
+      for(var i=0;i<nx;i++){ for(var j=0;j<nz;j++){
+        var fx = r.x1 + w*(i+0.5)/nx, fz = r.z1 + d*(j+0.5)/nz;
+        var fx2 = box(2.4,0.12,1.0,0xF7F4EA,{emissive:0xfff1c9,emissiveIntensity:0.75,roughness:0.9});
+        fx2.position.set(fx,WALL_H-0.12,fz); fx2.castShadow=false; scene.add(fx2); r.fixtures.push(fx2);
+      }}
+    });
+
+    // room name labels (click for room info)
+    ROOMS.forEach(function(r){
+      if(r.id==='corridor') return;
+      var lbl = labelSprite(r.name.toUpperCase());
+      lbl.position.set((r.x1+r.x2)/2, WALL_H-1.7, (r.z1+r.z2)/2);
+      lbl.userData.roomId = r.id;
+      scene.add(lbl); interactables.push(lbl);
+    });
+
+    // floor markings: clean / dirty zoning and workflow direction
+    [['transfer',9],['culture',-9],['darkroom',-9]].forEach(function(p){
+      var r=roomById[p[0]]; floorDecal((r.x1+r.x2)/2,p[1],Math.min(8.5,r.x2-r.x1-1),1.5,'CLEAN / ASEPTIC ZONE','#0F4F3A','rgba(31,138,99,0.35)', p[1]>0?Math.PI:0);
+    });
+    [['washing',9,true],['waste',-9,false]].forEach(function(p){
+      var r=roomById[p[0]]; floorDecal((r.x1+r.x2)/2,p[1],Math.min(8.5,r.x2-r.x1-1),1.5,'DIRTY ZONE','#6B3A1A','rgba(192,140,70,0.4)', p[2]?Math.PI:0);
+    });
+    [-42,-22,-2,18,38].forEach(function(x){ floorDecal(x,2.4,7,1.0,'\u2192  \u2192  \u2192','#0F4F3A','rgba(31,138,99,0.25)',0); });
+    floorDecal(-42,-2.4,9,1.0,'WORKFLOW: WASH \u2192 PREP \u2192 STERILIZE \u2192 TRANSFER','#0F4F3A','rgba(31,138,99,0.18)',0);
+    floorDecal(2,-2.4,9,1.0,'CULTURE \u2192 HARDEN \u2192 PLANT TRANSFER','#0F4F3A','rgba(31,138,99,0.18)',0);
+  }
+
+  /* ============================================================
+     MODULE: simulation state
+  ============================================================ */
+  var STATE = {
+    laf:{on:false, uv:false},
+    autoclave:{on:false, phase:'idle', temp:25, pressure:0, timer:0},
+    hotairoven:{on:false},
+    growthlights:{on:true},
+    darkroomlight:{on:false},
+    mist:{on:true}
+  };
+  var uvConfirmPending = false, uvBlockedMsg = false;
+
+  var lafAirflow = [], lafStatusLight = null, lafUvBulb = null, lafCleanZone = null, lafPanel = null;
+  var ovenLed = null, autoclaveLed = null, autoclavePanel = null, hepaMesh = null;
+  var cultureBars = [], darkSwitchLed = null, darkMonitor = null, cultureMonitor = null, hardMonitor = null, cultureCtrl = null;
+  var emergencyBox = null, mistDrops = [];
+  var instData = {bottle:[],media:[],explant:[],callus:[],stem:[],leaf:[],root:[]};
+
+  /* ============================================================
+     MODULE: culture racks (instanced bottles)
+  ============================================================ */
+  var _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _p = new THREE.Vector3(), _s = new THREE.Vector3(1,1,1);
+  function pushInst(key,x,y,z,sx,sy,sz,rz){
+    _p.set(x,y,z); _s.set(sx,sy,sz);
+    _q.setFromEuler(new THREE.Euler(0,0,rz||0));
+    instData[key].push(new THREE.Matrix4().compose(_p,_q,_s));
+  }
+  function addBottle(x,y,z,stage){
+    pushInst('bottle',x,y,z,1,1,1); pushInst('media',x,y,z,1,1,1);
+    if(stage===0){ pushInst('explant',x,y+0.2,z,1,1,1); }
+    else if(stage===1){ pushInst('callus',x,y+0.28,z,1.3,1,1.3); }
+    else if(stage===2){
+      for(var k=-1;k<=1;k++){ pushInst('stem',x+k*0.06,y+0.18,z+(k===0?0.04:-0.03),1,1.1,1); pushInst('leaf',x+k*0.06,y+0.5,z+(k===0?0.04:-0.03),1,0.6,1); }
+    } else {
+      pushInst('stem',x,y+0.18,z,1,1.1,1); pushInst('leaf',x,y+0.5,z,1.2,0.6,1.2);
+      pushInst('root',x-0.05,y+0.2,z,1,1,1,0.25); pushInst('root',x+0.05,y+0.2,z,1,1,1,-0.25); pushInst('root',x,y+0.2,z+0.04,1,0.8,1);
+    }
+  }
+  function finalizeInstances(){
+    var defs = {
+      bottle:[new THREE.CylinderGeometry(0.17,0.17,0.55,12),0xcfeee2,{transparent:true,opacity:0.35,roughness:0.1,metalness:0}],
+      media:[new THREE.CylinderGeometry(0.15,0.15,0.2,10),0xE9DC8A,{roughness:0.5,metalness:0}],
+      explant:[new THREE.BoxGeometry(0.1,0.04,0.07),0x7a5a32,{}],
+      callus:[new THREE.SphereGeometry(0.1,8,6),0xEFE3C0,{}],
+      stem:[new THREE.CylinderGeometry(0.015,0.02,0.3,5),0x3E9B52,{}],
+      leaf:[new THREE.SphereGeometry(0.07,6,4),0x56B86A,{}],
+      root:[new THREE.CylinderGeometry(0.008,0.012,0.2,4),0xF2EBDD,{}]
+    };
+    Object.keys(defs).forEach(function(k){
+      var arr = instData[k]; if(!arr.length) return;
+      var geo = defs[k][0];
+      if(k==='bottle'||k==='media'||k==='stem') geo.translate(0,(k==='bottle'?0.275:(k==='media'?0.1:0.15)),0);
+      if(k==='root') geo.translate(0,-0.1,0);
+      var im = new THREE.InstancedMesh(geo, mat(defs[k][1],defs[k][2]), arr.length);
+      for(var i=0;i<arr.length;i++) im.setMatrixAt(i,arr[i]);
+      im.instanceMatrix.needsUpdate = true;
+      im.castShadow = (k!=='bottle'); im.frustumCulled = false;
+      scene.add(im);
+    });
+  }
+  function buildRack(cx,cz,stage,label,dark){
+    var g = new THREE.Group(); g.position.set(cx,0,cz); equipmentGroup.add(g);
+    var postC = dark?0x59655F:0x8D9A95, plankC = dark?0x6C7872:0xB8C3BE;
+    [[-1.45,-0.85],[1.45,-0.85],[-1.45,0.85],[1.45,0.85]].forEach(function(p){ g.add(at(box(0.1,5.5,0.1,postC,{}),p[0],0,p[1])); });
+    for(var s=0;s<3;s++){
+      var sy = 1.1+s*1.6;
+      g.add(at(box(3.0,0.1,1.8,plankC,{}),0,sy,0));
+      var xs = linspace(-1.2,1.2,7);
+      for(var r=0;r<2;r++){ for(var c=0;c<xs.length;c++){ addBottle(cx+xs[c], sy+0.1, cz+(r===0?-0.38:0.38), stage); } }
+      var barY = (s<2) ? (1.1+(s+1)*1.6-0.22) : 5.25;
+      var bar = box(2.8,0.07,0.3,0xFFF7DE,{emissive:0xfff1a8,emissiveIntensity:0.9});
+      bar.position.set(0,barY,0); bar.castShadow=false; g.add(bar);
+      tag(bar,'growthlights',{noPush:true,noSolid:true});
+      cultureBars.push(bar);
+    }
+    g.add(hitBox(3.2,5.6,2.0,0,2.8,0));
+    if(label){ var lb = labelSprite(label,'rgba(10,20,17,0.78)','#8FE6C4',3.8,0.95); lb.position.set(0,6.1,0); g.add(lb); }
+    tag(g,'cultureracks');
+    return g;
+  }
+
+  /* ============================================================
+     MODULE: room-by-room construction
+  ============================================================ */
+  function buildEntry(){
+    var board = signPlane(8,1.5,function(ctx,w,h){
+      ctx.fillStyle='#0F1815'; roundRect(ctx,0,0,w,h,16); ctx.fill();
+      ctx.strokeStyle='#3FB58C'; ctx.lineWidth=6; roundRect(ctx,6,6,w-12,h-12,12); ctx.stroke();
+      ctx.fillStyle='#8FE6C4'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='700 38px "IBM Plex Sans", sans-serif';
+      ctx.fillText('PLANT TISSUE CULTURE',w/2,h*0.36); ctx.fillText('VIRTUAL LABORATORY',w/2,h*0.7);
+    });
+    mountOnWall(board,-35-WALL_T/2-0.03,9.0,20,-Math.PI/2);
+
+    var ppe = grp(-46,33.4,[box(2.8,3.6,1.2,0xE7ECE9,{roughness:0.6}), at(box(2.9,0.15,1.3,0x1F8A63,{}),0,3.6,0)]);
+    for(var i=0;i<3;i++){ ppe.add(at(box(0.7,1.8,0.15,0xFFFFFF,{}),-0.9+i*0.9,1.4,-0.62)); }
+    ppe.add(at(box(0.6,0.35,0.5,0x6FB3D9,{}),-0.8,3.75,0)); ppe.add(at(box(0.6,0.3,0.5,0xE9ECEA,{}),0,3.75,0)); ppe.add(at(box(0.5,0.3,0.4,0x222,{}),0.8,3.75,0));
+    tag(ppe,'ppestation');
+
+    var san = grp(-42.8,33.8,[cyl(0.32,0.32,2.8,0xDADFDC,{}), at(box(0.7,0.5,0.5,0x3FB58C,{}),0,2.8,0)]);
+    tag(san,'ppestation');
+
+    var info = signPlane(2.6,3.2,function(ctx,w,h){
+      ctx.fillStyle='#0F1815'; roundRect(ctx,0,0,w,h,16); ctx.fill();
+      ctx.strokeStyle='#3FB58C'; ctx.lineWidth=6; roundRect(ctx,6,6,w-12,h-12,12); ctx.stroke();
+      ctx.fillStyle='#8FE6C4'; ctx.font='700 30px "IBM Plex Sans", sans-serif'; ctx.textAlign='center';
+      ctx.fillText('VISITOR / STUDENT',w/2,h*0.14); ctx.fillText('INFORMATION',w/2,h*0.25);
+      ctx.font='400 19px "IBM Plex Sans", sans-serif'; ctx.textAlign='left';
+      ['1. Put on PPE at the station','2. Wash hands next door','3. Follow the green floor line','4. Click equipment to learn','5. No food or drink'].forEach(function(l,i){ ctx.fillText(l,w*0.08,h*0.4+i*h*0.1); });
+    });
+    mountOnWall(info,-37.8,4.6,35-WALL_T/2-0.03,Math.PI);
+
+    var nav = signPlane(3.8,4.4,function(ctx,w,h){
+      ctx.fillStyle='#0F1815'; roundRect(ctx,0,0,w,h,16); ctx.fill();
+      ctx.strokeStyle='#3FB58C'; ctx.lineWidth=6; roundRect(ctx,6,6,w-12,h-12,12); ctx.stroke();
+      ctx.fillStyle='#8FE6C4'; ctx.font='700 28px "IBM Plex Sans", sans-serif'; ctx.textAlign='center';
+      ctx.fillText('LAB ROOMS',w/2,h*0.08);
+      ctx.font='400 17px "IBM Plex Sans", sans-serif'; ctx.textAlign='left';
+      var names = ROOMS.filter(function(r){return r.id!=='corridor';});
+      names.forEach(function(r,i){ ctx.fillStyle = (r.row==='north')?'#8FE6C4':'#E9DC8A'; ctx.fillText((i+1)+'. '+r.name, w*0.07, h*0.15+i*h*0.063); });
+      ctx.fillStyle='#6FA592'; ctx.font='400 14px sans-serif'; ctx.fillText('Green: north rooms. Yellow: south rooms.', w*0.07, h*0.97);
+    });
+    mountOnWall(nav,-50+WALL_T/2+0.03,5.2,11,Math.PI/2);
+
+    mountOnWall(hazardSign('Wear PPE','ppe'),-50+WALL_T/2+0.03,6.2,29,Math.PI/2);
+    mountOnWall(hazardSign('No Food / Drink','food'),-50+WALL_T/2+0.03,6.2,31.6,Math.PI/2);
+    mountOnWall(hazardSign('Hot Surface','hot'),-35-WALL_T/2-0.03,5,31,-Math.PI/2);
+    var credits = signPlane(3.6,2.0,function(ctx,w,h){
+      ctx.fillStyle='#0F1815'; roundRect(ctx,0,0,w,h,14); ctx.fill();
+      ctx.strokeStyle='#3FB58C'; ctx.lineWidth=6; roundRect(ctx,5,5,w-10,h-10,10); ctx.stroke();
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='#8FE6C4'; ctx.font='700 20px "IBM Plex Sans", sans-serif'; ctx.fillText('SUBMITTED BY',w/2,h*0.14);
+      ctx.fillStyle='#EAF3EF'; ctx.font='700 24px "IBM Plex Sans", sans-serif'; ctx.fillText('Shivansh Sahu',w/2,h*0.34);
+      ctx.fillStyle='#8FE6C4'; ctx.font='500 17px "IBM Plex Mono", monospace'; ctx.fillText('Roll no. 24111038',w/2,h*0.48);
+      ctx.fillStyle='#EAF3EF'; ctx.font='700 24px "IBM Plex Sans", sans-serif'; ctx.fillText('Ayush Dhavanya',w/2,h*0.68);
+      ctx.fillStyle='#8FE6C4'; ctx.font='500 17px "IBM Plex Mono", monospace'; ctx.fillText('Roll no. 24111010',w/2,h*0.82);
+    });
+    mountOnWall(credits,-47.9,6.4,35-WALL_T/2-0.03,Math.PI);
+  }
+
+  function buildHandwash(){
+    var sink = grp(-30,33.2,[box(2.8,2.6,1.4,0xDADFDC,{}), at(box(3.0,0.15,1.5,0xB8C3BE,{metalness:0.3,roughness:0.3}),0,2.6,0),
+      at(cyl(0.06,0.06,0.7,0x9AA6A1,{}),0,2.75,0.45), at(cyl(0.05,0.05,0.5,0x9AA6A1,{}),0,3.4,0.2)]);
+    sink.children[3].rotation.x = Math.PI/2;
+    sink.children[3].position.set(0,3.4,0.2);
+    tag(sink,'sink');
+    var rack = grp(-33.9,26,[box(0.5,0.1,2.6,0x8D9A95,{}), at(box(0.1,4.6,0.1,0x8D9A95,{}),0,0,-1.2), at(box(0.1,4.6,0.1,0x8D9A95,{}),0,0,1.2), at(box(0.1,0.1,2.6,0x8D9A95,{}),0,4.5,0)]);
+    for(var i=0;i<4;i++){ rack.add(at(box(0.2,2.6,0.6,0xFFFFFF,{}),0.1,1.7,-0.9+i*0.6)); }
+    tag(rack,'ppestation');
+    var disp = grp(-26.2,26,[box(1.0,2.8,1.0,0xE7ECE9,{}), at(box(0.7,0.5,0.6,0x6FB3D9,{}),0,2.8,0)]);
+    tag(disp,'ppestation');
+    var goggles = grp(-33.9,12,[box(0.5,0.1,2.6,0x8D9A95,{})]);
+    for(var j=0;j<5;j++){ goggles.add(at(box(0.3,0.15,0.4,0x3FB58C,{transparent:true,opacity:0.8}),0.05,1.8,-1+j*0.5)); }
+    goggles.add(at(box(0.1,1.9,0.1,0x8D9A95,{}),0,0,-1.2)); goggles.add(at(box(0.1,1.9,0.1,0x8D9A95,{}),0,0,1.2));
+    tag(goggles,'ppestation');
+    mountOnWall(hazardSign('Wear PPE','ppe'),-30,6.2,35-WALL_T/2-0.03,Math.PI);
+  }
+
+  function buildWashing(){
+    var sinkG = grp(-15,33.2,[box(5.2,2.6,1.7,0xD3D9D5,{metalness:0.3,roughness:0.35}), at(box(5.4,0.15,1.8,0xB8C3BE,{metalness:0.3,roughness:0.3}),0,2.6,0),
+      at(box(1.9,0.05,1.1,0x6B7B76,{}),-1.2,2.74,-0.05), at(box(1.9,0.05,1.1,0x6B7B76,{}),1.2,2.74,-0.05),
+      at(cyl(0.06,0.06,0.8,0x9AA6A1,{}),0,2.75,0.65), at(cyl(0.05,0.05,0.7,0x9AA6A1,{}),0,3.5,0.4)]);
+    sinkG.children[5].rotation.x = Math.PI/2;
+    tag(sinkG,'sink');
+    var dirty = grp(-21.5,33.2,shelfUnit(4,3.6,1.3,3,0xBCA98A));
+    for(var i=0;i<5;i++){ dirty.add(at(flask(0.8,0xBFD0C8),-1.4+i*0.7,0.33,0)); dirty.add(at(beaker(0.25,0.5),-1.4+i*0.7,1.5,0)); }
+    var dl = labelSprite('DIRTY GLASSWARE','rgba(107,58,26,0.85)','#F6E3C8',3.4,0.85); dl.position.set(0,4.4,0); dirty.add(dl);
+    tag(dirty,'sink');
+    var clean = grp(-8.5,33.2,shelfUnit(4,3.6,1.3,3,0xD8E8E0));
+    for(var j=0;j<5;j++){ clean.add(at(flask(0.8,0xDFF1EA),-1.4+j*0.7,0.33,0)); clean.add(at(beaker(0.25,0.5),-1.4+j*0.7,1.5,0)); }
+    for(var k=0;k<6;k++){ clean.add(at(cyl(0.1,0.1,0.6,0xDFF1EA,{transparent:true,opacity:0.5,metalness:0}),-1.4+k*0.5,2.65,0)); }
+    var cl = labelSprite('CLEAN GLASSWARE','rgba(31,138,99,0.85)','#E8FFF5',3.4,0.85); cl.position.set(0,4.4,0); clean.add(cl);
+    tag(clean,'sink');
+    var det = grp(-6.3,28,shelfUnit(1.2,4.2,4,3,0xEDE3D3));
+    for(var d=0;d<5;d++){ det.add(at(cyl(0.2,0.2,0.7,0x6FB3D9,{metalness:0.1}),0,0.35,-1.4+d*0.7)); }
+    det.add(at(labelSprite('DETERGENT','rgba(10,20,17,0.78)','#8FE6C4',2.4,0.6),0,4.8,0));
+    tag(det,'sink');
+    var brushes = bench(-14.5,22,6,2.2,0);
+    for(var b=0;b<4;b++){ addTo(brushes,-2+b*1.3,3.0,0,[cyl(0.04,0.04,1.0,0xC9A25A,{}), at(cyl(0.12,0.12,0.4,0x3E7FB0,{metalness:0.05}),0,0.9,0)]); }
+    addTo(brushes,2.4,3.0,0,[at(cyl(0.5,0.5,0.6,0x6FB3D9,{transparent:true,opacity:0.5,metalness:0}),0,0,0)]);
+    var drain = new THREE.Mesh(new THREE.CircleGeometry(0.6,20), new THREE.MeshStandardMaterial({color:0x333a37}));
+    drain.rotation.x = -Math.PI/2; drain.position.set(-15,0.03,28); scene.add(drain);
+    mountOnWall(hazardSign('Wear PPE','ppe'),-5-WALL_T/2-0.03,6.2,31,-Math.PI/2);
+  }
+
+  function buildMediaPrep(){
+    var benchA = bench(8.5,33.2,19,2.6,0);
+    function onBench(x,z,parts,id){ var g = addTo(benchA,x-8.5,3.0,z-33.2,parts); if(id) tag(g,id,{noSolid:true}); return g; }
+    onBench(0.5,33.2,[box(1.2,0.5,1.0,0xDDE6E3,{}), at(box(0.8,0.04,0.7,0xCBD3CF,{metalness:0.4}),0,0.5,0), at(box(1.1,0.8,0.9,0xCFE8F0,{transparent:true,opacity:0.22}),0,0.5,0),
+      at(box(0.6,0.22,0.04,0x0d1a15,{emissive:0x3FB58C,emissiveIntensity:0.5}),0,0.18,-0.52)],'balance');
+    onBench(3.4,33.2,[box(0.9,0.55,0.7,0x2E7D6B,{}), at(box(0.5,0.25,0.04,0x0d1a15,{emissive:0x3FB58C,emissiveIntensity:0.5}),0,0.22,-0.36),
+      at(cyl(0.04,0.04,1.3,0x555F5A,{}),0.55,0,0.1), at(box(0.7,0.04,0.04,0x555F5A,{}),0.2,1.3,0.1), at(cyl(0.03,0.03,0.9,0xBDC7C3,{}),-0.14,0.45,0.1),
+      at(beaker(0.28,0.5),-0.14,0,0.1)],'phmeter');
+    onBench(6.2,33.2,[box(1.2,0.35,1.2,0x4D5753,{metalness:0.3,roughness:0.4}), at(cyl(0.5,0.5,0.05,0x1b1b1b,{}),0,0.35,0), at(beaker(0.35,0.7),0,0.4,0), at(cyl(0.06,0.06,0.06,0xC9A25A,{}),0.4,0.1,-0.62)],'stirrer');
+    onBench(9.5,33.2,[box(1.7,0.6,1.2,0xC7CDC9,{}), at(box(1.5,0.02,1.0,0x6FB8D9,{metalness:0}),0,0.6,0), at(box(0.5,0.2,0.04,0x0d1a15,{emissive:0x3FB58C,emissiveIntensity:0.4}),0.5,0.2,-0.62), at(flask(0.7),-0.3,0.55,0)],'waterbath');
+    onBench(13,33.2,[box(1.6,0.95,1.2,0xDDE0DE,{}), at(box(0.95,0.6,0.04,0x1c2422,{}),-0.2,0.15,-0.62), at(box(0.3,0.6,0.04,0x9AA6A1,{}),0.55,0.15,-0.62)],'microwave');
+    [15.6,16.4,17.2].forEach(function(x,i){ onBench(x,33.2,[cyl(0.12,0.12,1.1-i*0.2,0xDFF1EA,{transparent:true,opacity:0.5,metalness:0})]); });
+    onBench(15.6,34.0,[beaker(0.32,0.6)]); onBench(17.0,34.0,[flask(0.9)]);
+    onBench(14.2,34.0,[cyl(0.02,0.02,1.2,0xC9D6D0,{}), at(cyl(0.02,0.02,1.2,0xC9D6D0,{}),0.12,0,0), at(cyl(0.02,0.02,1.2,0xC9D6D0,{}),-0.12,0,0)]);
+
+    var shelfLabels = ['MS MACRO','MS MICRO','VITAMINS','SUCROSE','AGAR','PGRs','REAGENTS'];
+    [5.4,7.4].forEach(function(sy,row){
+      scene.add(at(box(19,0.12,0.9,0xCBD3CF,{}),8.5,sy,34.3));
+      [-1,18].forEach(function(bx){ scene.add(at(box(0.1,0.6,0.8,0x8D9A95,{}),bx,sy-0.5,34.3)); });
+    });
+    linspace(0.5,16.5,7).forEach(function(bx,i){
+      var g = new THREE.Group(); g.position.set(bx,5.52,34.3); equipmentGroup.add(g);
+      for(var k=-1;k<=1;k++){ g.add(at(reagentBottle([0x7A4A22,0xDDE6E3,0x6B8E9F][Math.abs(k)+((i%2)?1:0)]),k*0.5,0,0)); }
+      var lb = labelSprite(shelfLabels[i],'rgba(10,20,17,0.78)','#8FE6C4',2.2,0.55); lb.position.set(0,1.1,0.1); g.add(lb);
+      tag(g,'stor_media',{noSolid:true});
+      var g2 = new THREE.Group(); g2.position.set(bx,7.52,34.3); equipmentGroup.add(g2);
+      for(var m=-1;m<=1;m++){ g2.add(at(mediaBottle(),m*0.5,0,0)); }
+    });
+
+    var island = bench(7.5,19,11,2.8,0);
+    [-4.5,-3.3,-2.1,-0.9,0.3,1.5].forEach(function(lx,i){ addTo(island,lx,3.0,-0.7,[ i<3 ? reagentBottle(0x7A4A22) : mediaBottle() ]); });
+    addTo(island,3.2,3.0,-0.5,[flask(1.0)]); addTo(island,4.2,3.0,0.3,[beaker(0.4,0.8)]); addTo(island,2.6,3.0,0.6,[beaker(0.3,0.6)]);
+    var tray = addTo(island,-1.5,3.0,0.6,[box(2.6,0.1,1.1,0xB8C3BE,{})]);
+    for(var t=0;t<6;t++){ tray.add(at(mediaBottle(),-1.0+t*0.4,0.1,0)); }
+    tag(tray,'stor_media',{noSolid:true});
+
+    var fridgeA = grp(-3.7,30.2,[box(1.8,6.2,2.0,0xF1F4F2,{}), at(box(0.06,1.4,0.1,0x7D8B86,{}),0.93,3.2,-0.7), at(box(0.04,0.04,1.96,0x9AA6A1,{}),0.91,3.9,0), at(box(0.06,1.0,0.1,0x7D8B86,{}),0.93,0.7,-0.7)]);
+    tag(fridgeA,'fridge');
+    var fridgeB = grp(-3.7,27.6,[box(1.8,3.4,2.0,0xE7ECE9,{}), at(box(0.06,1.0,0.1,0x7D8B86,{}),0.93,1.6,-0.7), at(box(0.5,0.3,0.04,0x0d1a15,{emissive:0x3FB58C,emissiveIntensity:0.4}),0.92,2.8,0.3)]);
+    fridgeB.children[2].rotation.y = Math.PI/2;
+    tag(fridgeB,'fridge');
+
+    var ro = grp(19.0,29.6,[box(0.9,3.2,1.3,0xE9F2EE,{}), at(cyl(0.45,0.45,2.2,0xCFE6DC,{transparent:true,opacity:0.7,metalness:0}),0,3.2,0),
+      at(cyl(0.18,0.18,2.4,0x6FB3D9,{metalness:0.1}),-0.7,0,0.9), at(cyl(0.18,0.18,2.4,0x9AA6A1,{metalness:0.1}),-0.7,0,0.4), at(cyl(0.18,0.18,2.4,0xDDE6E3,{metalness:0.1}),-0.7,0,-0.1)]);
+    tag(ro,'rosystem');
+
+    var sink = grp(-2.6,33.3,[box(2.8,2.6,1.5,0xDADFDC,{}), at(box(3.0,0.15,1.6,0xB8C3BE,{metalness:0.3}),0,2.6,0), at(cyl(0.06,0.06,0.8,0x9AA6A1,{}),0,2.75,0.55)]);
+    tag(sink,'sink');
+    mountOnWall(hazardSign('Electrical','elec'),-5+WALL_T/2+0.03,6.2,31,Math.PI/2);
+    mountOnWall(hazardSign('Wear PPE','ppe'),8,8.6,5+WALL_T/2+0.03,0);
+  }
+
+  function drawAutoclave(ctx,w,h){
+    var s = STATE.autoclave;
+    ctx.fillStyle='#031b12'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='#3FB58C'; ctx.lineWidth=5; ctx.strokeRect(3,3,w-6,h-6);
+    ctx.textAlign='left'; ctx.fillStyle='#8FE6C4';
+    ctx.font='700 22px "IBM Plex Mono", monospace'; ctx.fillText('AUTOCLAVE',14,32);
+    ctx.font='500 18px "IBM Plex Mono", monospace';
+    ctx.fillText('STATUS: '+s.phase.toUpperCase(),14,68);
+    ctx.fillText('TEMP:   '+s.temp.toFixed(1)+' C',14,98);
+    ctx.fillText('PRESS:  '+s.pressure.toFixed(1)+' PSI',14,128);
+    ctx.fillText('TIME:   '+s.timer.toFixed(0)+' s',14,158);
+  }
+  function buildSterilization(){
+    var ac = grp(24.5,33.2,[box(3.0,3.6,2.6,0xC7CDC9,{metalness:0.35,roughness:0.35})]);
+    var acDoor = cyl(1.0,1.0,0.15,0x9AA6A1,{metalness:0.4}); acDoor.rotation.x = -Math.PI/2; acDoor.position.set(0,1.7,-1.38); ac.add(acDoor);
+    var wheel = new THREE.Mesh(new THREE.TorusGeometry(0.35,0.05,6,16), mat(0x2f3836,{})); wheel.position.set(0,1.7,-1.5); ac.add(wheel);
+    autoclavePanel = screenPlane(1.9,1.0,320,180,drawAutoclave);
+    autoclavePanel.position.set(0,2.85,-1.31); autoclavePanel.rotation.y = Math.PI; ac.add(autoclavePanel);
+    autoclaveLed = box(0.18,0.18,0.06,0x555555,{emissive:0x000000,emissiveIntensity:0}); autoclaveLed.position.set(1.15,1.5,-1.32); ac.add(autoclaveLed);
+    ac.add(at(cyl(0.08,0.08,0.6,0x9AA6A1,{}),-1.2,3.6,0.6));
+    tag(ac,'autoclave');
+
+    var pipe = cyl(0.1,0.1,4.6,0x4A8FB8,{metalness:0.2}); pipe.position.set(22.3,0,34.4); scene.add(pipe);
+    pipe.castShadow = true;
+
+    var ov = grp(30.5,33.3,[box(2.8,3.6,2.4,0xE9E3EC,{}), at(box(2.3,2.6,0.1,0xC7CDC9,{metalness:0.35}),0,0.5,-1.25), at(cyl(0.04,0.04,1.6,0x555F5A,{}),1.0,0.9,-1.38)]);
+    ov.children[2].rotation.z = 0;
+    ovenLed = box(0.2,0.2,0.06,0x333333,{emissive:0x000000,emissiveIntensity:0}); ovenLed.position.set(-0.9,3.1,-1.22); ov.add(ovenLed);
+    ov.add(at(box(0.8,0.3,0.04,0x0d1a15,{emissive:0x3FB58C,emissiveIntensity:0.3}),0.2,3.1,-1.22));
+    tag(ov,'hotairoven');
+
+    var steril = grp(33.5,27,shelfUnit(1.3,5.2,5,4,0xE9E3EC));
+    for(var i=0;i<4;i++){ for(var k=0;k<4;k++){ steril.add(at(box(0.8,0.5,0.9,0xDDE6E3,{}),0,0.33+i*1.4,-1.8+k*1.2)); } }
+    steril.add(at(labelSprite('STERILE STORAGE','rgba(10,20,17,0.78)','#8FE6C4',3.2,0.8),0,5.8,0));
+    tag(steril,'stor_sterile');
+
+    var load = bench(27.5,25,6,2.4,0);
+    addTo(load,-1.5,3.0,0,[box(1.6,0.08,1.0,0x9AA6A1,{}), at(mediaBottle(),-0.4,0.08,0), at(mediaBottle(),0.2,0.08,0)]);
+    var gloves = addTo(load,1.6,3.0,0,[box(0.5,0.08,0.7,0xE2864F,{}), at(box(0.3,0.1,0.4,0xE2864F,{}),0,0.08,0)]);
+    tag(gloves,'ppestation',{noSolid:true});
+    mountOnWall(hazardSign('Hot Surface','hot'),22.6,6.2,5+WALL_T/2+0.03,0);
+    mountOnWall(hazardSign('Electrical','elec'),26.5,7.2,35-WALL_T/2-0.03,Math.PI);
+  }
+
+  function drawLAF(ctx,w,h){
+    ctx.fillStyle='#031b12'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='#3FB58C'; ctx.lineWidth=4; ctx.strokeRect(2,2,w-4,h-4);
+    ctx.textAlign='left'; ctx.fillStyle='#8FE6C4';
+    ctx.font='700 20px "IBM Plex Mono", monospace'; ctx.fillText('LAF CABINET',12,28);
+    ctx.font='500 16px "IBM Plex Mono", monospace';
+    ctx.fillText('LAF: '+(STATE.laf.on?'ON':'OFF'),12,56);
+    ctx.fillText('AIRFLOW: '+(STATE.laf.on?'ACTIVE':'OFF'),12,80);
+    ctx.fillText('HEPA: '+(STATE.laf.on?'ACTIVE':'STANDBY'),12,104);
+    ctx.fillStyle = STATE.laf.uv ? '#E2685A' : '#8FE6C4';
+    ctx.fillText('UV LAMP: '+(STATE.laf.uv?'ON':'OFF'),12,128);
+    ctx.fillStyle='#6FA592'; ctx.font='400 11px "IBM Plex Mono", monospace';
+    ctx.fillText('No UV with personnel present',12,150);
+  }
+  function buildTransfer(){
+    var laf = grp(42.5,33.3,[box(5.4,2.7,2.6,0xB9C2BE,{metalness:0.25,roughness:0.5}), at(box(5.0,0.1,2.4,0xE6EAE8,{metalness:0.3,roughness:0.3}),0,2.7,0),
+      at(box(5.0,3.5,0.12,0xE6EAE8,{}),0,2.7,1.14), at(box(0.12,3.5,2.4,0xE6EAE8,{}),-2.55,2.7,0), at(box(0.12,3.5,2.4,0xE6EAE8,{}),2.55,2.7,0),
+      at(box(5.2,0.9,2.5,0xDDE3E0,{}),0,5.3,0), at(box(4.9,1.1,0.04,0xCFE8F0,{transparent:true,opacity:0.25}),0,4.2,-1.2)]);
+    hepaMesh = at(box(4.6,2.3,0.06,0xE8EEF8,{emissive:0x6fa0ff,emissiveIntensity:0.12}),0,2.8,1.04); laf.add(hepaMesh);
+    laf.add(at(box(4.2,0.06,0.18,0xFFFFFF,{emissive:0xffffff,emissiveIntensity:0.5}),0,5.2,-0.6));
+    lafUvBulb = at(box(4.2,0.06,0.12,0x7A4EA6,{emissive:0x9B6CE0,emissiveIntensity:0}),0,5.2,-0.2); laf.add(lafUvBulb);
+    lafPanel = screenPlane(1.7,0.85,320,160,drawLAF); lafPanel.position.set(1.3,5.45,-1.26); lafPanel.rotation.y = Math.PI; laf.add(lafPanel);
+    lafStatusLight = at(box(0.2,0.2,0.05,0x555555,{emissive:0x000000,emissiveIntensity:0}),2.35,5.8,-1.27); laf.add(lafStatusLight);
+    lafCleanZone = at(box(4.7,2.3,2.0,0x3FE0A0,{transparent:true,opacity:0.08,emissive:0x3FE0A0,emissiveIntensity:0.4}),0,2.85,0);
+    lafCleanZone.userData.noCollide = true; lafCleanZone.visible = false; laf.add(lafCleanZone);
+    for(var row=0;row<3;row++){ for(var c=0;c<5;c++){
+      var pt = box(0.04,0.04,0.7,0xBFE8DC,{transparent:true,opacity:0.6,emissive:0x3FE0A0,emissiveIntensity:0.6});
+      pt.position.set(-2.0+c*1.0, 3.3+row*0.7, 0.9-((row*5+c)%5)*0.45);
+      pt.userData.noCollide = true; pt.visible = false; laf.add(pt); lafAirflow.push(pt);
+    }}
+    var burner = addTo(laf,-1.9,2.8,-0.4,[cyl(0.22,0.28,0.45,0xC0562A,{metalness:0.1}), at(cyl(0.03,0.03,0.4,0xffdca0,{emissive:0xffb347,emissiveIntensity:0.7}),0,0.45,0)]);
+    tag(burner,'burner',{noPush:true,noSolid:true});
+    var tools = addTo(laf,-0.4,2.8,-0.4,[at(box(0.04,0.04,0.8,0x9AA6A1,{}),-0.1,0.02,0), at(box(0.04,0.04,0.8,0x9AA6A1,{}),0.1,0.02,0.1), at(box(0.03,0.03,0.6,0xC7CDC9,{}),0.25,0.02,-0.05)]);
+    tag(tools,'instruments',{noPush:true,noSolid:true});
+    for(var d=0;d<3;d++){ laf.add(at(cyl(0.36,0.36,0.08,0xDDEEF0,{transparent:true,opacity:0.6,metalness:0}),1.2,2.8+d*0.09,0.1)); }
+    laf.add(at(cyl(0.25,0.25,0.5,0xDFF1EA,{transparent:true,opacity:0.5,metalness:0}),1.9,2.8,0.4));
+    laf.add(at(mediaBottle(),0.5,2.8,0.45));
+    tag(laf,'laf');
+
+    var prep = bench(36.5,29,8.5,2.4,Math.PI/2);
+    function onPrep(lx,parts,id){ var g = addTo(prep,lx,3.0,0,parts); if(id) tag(g,id,{noSolid:true}); return g; }
+    onPrep(-3.2,[box(1.6,0.1,1.0,0x9AA6A1,{}), at(box(0.04,0.04,0.8,0x9AA6A1,{}),-0.4,0.1,0), at(box(0.04,0.04,0.7,0xC7CDC9,{}),0,0.1,0.1), at(box(0.2,0.04,0.5,0xE9ECEA,{}),0.4,0.1,0)],'instruments');
+    onPrep(-1.2,[cyl(0.2,0.2,0.7,0xE9F2F8,{metalness:0.05}), at(cyl(0.09,0.09,0.15,0x3E7FB0,{}),0,0.7,0)],'stor_cleaning');
+    onPrep(0.6,[box(0.7,0.35,0.5,0x6FB3D9,{}), at(box(0.6,0.3,0.4,0xE9E9E9,{}),0.9,0,0)],'ppestation');
+    onPrep(2.6,[mediaBottle(), at(mediaBottle(),0.5,0,0), at(mediaBottle(),0,0,0.5)]);
+    onPrep(3.9,[box(0.9,0.12,0.7,0x9AA6A1,{}), at(cyl(0.3,0.3,0.08,0xDDEEF0,{transparent:true,opacity:0.6,metalness:0}),0,0.12,0)]);
+
+    var coatHook = new THREE.Group(); equipmentGroup.add(coatHook);
+    [22,24.2].forEach(function(cz){
+      var c = grp(49.5,cz,[at(box(0.12,0.2,0.4,0x8D9A95,{}),0,5.3,0), at(box(0.15,2.7,1.0,0xFFFFFF,{}),-0.05,2.6,0)]);
+      tag(c,'ppestation',{noSolid:true});
+    });
+    var bin = grp(47.5,8.6,[makeBin(0xC0562A,0.55,1.3)]);
+    tag(bin,'waste_bio');
+    mountOnWall(hazardSign('UV Hazard','uv'),39,6.4,35-WALL_T/2-0.03,Math.PI);
+    mountOnWall(hazardSign('Biohazard','bio'),50-WALL_T/2-0.03,6.2,14,-Math.PI/2);
+    mountOnWall(hazardSign('Wear PPE','ppe'),50-WALL_T/2-0.03,6.2,28,-Math.PI/2);
+    var warn = signPlane(3.4,1.0,function(ctx,w,h){
+      ctx.fillStyle='#2a1412'; roundRect(ctx,0,0,w,h,12); ctx.fill();
+      ctx.strokeStyle='#E2685A'; ctx.lineWidth=5; roundRect(ctx,5,5,w-10,h-10,10); ctx.stroke();
+      ctx.fillStyle='#FFD7CF'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='700 22px "IBM Plex Sans", sans-serif'; ctx.fillText('UV exposure must be avoided',w/2,h*0.35); ctx.fillText('while personnel are present.',w/2,h*0.7);
+    });
+    mountOnWall(warn,42.5,8.6,5+WALL_T/2+0.03,0);
+  }
+
+  function drawCultureMon(ctx,w,h,t,rh){
+    ctx.fillStyle='#031b12'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='#3FB58C'; ctx.lineWidth=4; ctx.strokeRect(2,2,w-4,h-4);
+    ctx.textAlign='left'; ctx.fillStyle='#8FE6C4'; ctx.font='700 16px "IBM Plex Mono", monospace'; ctx.fillText('CULTURE ROOM',10,24);
+    ctx.font='500 22px "IBM Plex Mono", monospace'; ctx.fillText(t.toFixed(1)+' \u00B0C',10,60); ctx.fillText(rh.toFixed(0)+' % RH',10,90);
+    ctx.font='500 14px "IBM Plex Mono", monospace';
+    ctx.fillStyle = STATE.growthlights.on ? '#8FE6C4' : '#E2864F';
+    ctx.fillText('LIGHTS: '+(STATE.growthlights.on?'ON':'OFF'),10,114);
+    ctx.fillStyle='#6FA592'; ctx.fillText('TIMER 16h ON / 8h OFF',10,136);
+    ctx.font='400 11px "IBM Plex Mono", monospace'; ctx.fillText('TARGET 24-26C / 50-60%RH',10,154);
+  }
+  function drawDarkMon(ctx,w,h,t,rh){
+    ctx.fillStyle='#031b12'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='#3FB58C'; ctx.lineWidth=4; ctx.strokeRect(2,2,w-4,h-4);
+    ctx.textAlign='left'; ctx.fillStyle='#8FE6C4'; ctx.font='700 16px "IBM Plex Mono", monospace'; ctx.fillText('DARK ROOM',10,24);
+    ctx.font='500 22px "IBM Plex Mono", monospace'; ctx.fillText(t.toFixed(1)+' \u00B0C',10,60); ctx.fillText(rh.toFixed(0)+' % RH',10,90);
+    ctx.font='500 14px "IBM Plex Mono", monospace';
+    ctx.fillStyle = STATE.darkroomlight.on ? '#E2864F' : '#8FE6C4';
+    ctx.fillText('MAIN LIGHT: '+(STATE.darkroomlight.on?'ON':'OFF'),10,114);
+    ctx.fillStyle='#6FA592'; ctx.fillText('EMERGENCY LIGHT: ON',10,136);
+  }
+  function drawHardMon(ctx,w,h,t,rh){
+    ctx.fillStyle='#031b12'; ctx.fillRect(0,0,w,h);
+    ctx.strokeStyle='#3FB58C'; ctx.lineWidth=4; ctx.strokeRect(2,2,w-4,h-4);
+    ctx.textAlign='left'; ctx.fillStyle='#8FE6C4'; ctx.font='700 16px "IBM Plex Mono", monospace'; ctx.fillText('HARDENING AREA',10,24);
+    ctx.font='500 22px "IBM Plex Mono", monospace'; ctx.fillText(t.toFixed(1)+' \u00B0C',10,60); ctx.fillText(rh.toFixed(0)+' % RH',10,90);
+    ctx.font='500 14px "IBM Plex Mono", monospace'; ctx.fillText('MIST: '+(STATE.mist.on?'ON':'OFF'),10,114);
+    ctx.fillStyle='#6FA592'; ctx.fillText('HUMIDITY STEPPED DOWN',10,136);
+  }
+  var monitorVals = {c:[24.6,58], d:[22.5,55], h:[27.0,82]};
+
+  function buildCulture(){
+    var xs = [-8.4,-1.8,4.8,11.4];
+    var stages = ['EXPLANT CULTURE','CALLUS CULTURE','SHOOT MULTIPLICATION','ROOTING CULTURE'];
+    xs.forEach(function(x,i){ buildRack(x,-33.6,i,stages[i],false); });
+    xs.forEach(function(x,i){ buildRack(x,-26,i,stages[i],false); });
+
+    cultureMonitor = screenPlane(2.4,1.5,260,160,function(ctx,w,h){ drawCultureMon(ctx,w,h,24.6,58); });
+    mountOnWall(cultureMonitor,16.72,4.8,-12,-Math.PI/2);
+    tag(cultureMonitor,'envmonitor',{noSolid:true});
+    var sw = grp(16.6,-12,[box(0.25,0.9,0.7,0x8D9A95,{})]); sw.position.y = 2.6;
+    cultureCtrl = box(0.12,0.16,0.16,0x3FE08A,{emissive:0x3FE08A,emissiveIntensity:0.8}); cultureCtrl.position.set(-0.14,0.65,0); sw.add(cultureCtrl);
+    sw.add(at(box(0.12,0.3,0.14,0xE9ECEA,{}),-0.14,0.2,0.15));
+    tag(sw,'growthlights',{noSolid:true});
+
+    [11,-6.5].forEach(function(hx){
+      var h = grp(hx,-5.65,[box(3.4,1.1,0.8,0xD8DEDA,{}), at(box(3.0,0.05,0.04,0x6B7B76,{}),0,0.3,-0.42), at(box(3.0,0.05,0.04,0x6B7B76,{}),0,0.55,-0.42), at(box(3.0,0.05,0.04,0x6B7B76,{}),0,0.8,-0.42)]);
+      h.position.y = 6.9;
+      tag(h,'hvac',{noSolid:true});
+    });
+    mountOnWall(hazardSign('Wear PPE','ppe'),-5.4,6.2,-5.28,Math.PI);
+  }
+
+  function buildDarkroom(){
+    var cl = 0x1B2220;
+    function clad(x,y,z,w,h,d){ var m = box(w,h,d,cl,{roughness:0.95}); m.position.set(x,y,z); m.castShadow=false; scene.add(m); }
+    clad(22.5,0,-34.72,11,10,0.06); clad(27.72,0,-20,0.06,10,30); clad(17.28,0,-20,0.06,10,30);
+    clad(18.4,0,-5.28,2.3,10,0.06); clad(26.6,0,-5.28,2.1,10,0.06);
+    var ceil = box(10.5,0.08,29.5,cl,{roughness:0.95}); ceil.position.set(22.5,WALL_H-0.1,-20); ceil.castShadow=false; scene.add(ceil);
+
+    buildRack(20.6,-33.6,1,'DARK INCUBATION',true);
+    buildRack(24.4,-33.6,0,null,true);
+    buildRack(22.5,-26,2,null,true);
+
+    darkSwitchLed = box(0.12,0.14,0.14,0x3FE08A,{emissive:0x3FE08A,emissiveIntensity:0.7});
+    var sw = grp(27.55,-8.2,[box(0.2,0.8,0.5,0x2E7D6B,{emissive:0x1F8A63,emissiveIntensity:0.35})]); sw.position.y = 3.6;
+    darkSwitchLed.position.set(-0.12,0.65,0); sw.add(darkSwitchLed);
+    sw.add(at(box(0.1,0.3,0.14,0xE9ECEA,{}),-0.12,0.2,0.12));
+    tag(sw,'darkroomlight',{noSolid:true});
+
+    darkMonitor = screenPlane(2.2,1.4,260,160,function(ctx,w,h){ drawDarkMon(ctx,w,h,22.5,55); });
+    mountOnWall(darkMonitor,27.68,4.8,-18,-Math.PI/2);
+    tag(darkMonitor,'envmonitor',{noSolid:true});
+
+    emergencyBox = box(0.5,0.2,0.2,0x4a0d0d,{emissive:0xE2685A,emissiveIntensity:0.5});
+    emergencyBox.position.set(27.5,8.2,-12); scene.add(emergencyBox);
+
+    var warn = signPlane(3.6,1.8,function(ctx,w,h){
+      ctx.fillStyle='#12201A'; roundRect(ctx,0,0,w,h,12); ctx.fill();
+      ctx.strokeStyle='#E2864F'; ctx.lineWidth=5; roundRect(ctx,5,5,w-10,h-10,10); ctx.stroke();
+      ctx.fillStyle='#FFD9BF'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.font='700 24px "IBM Plex Sans", sans-serif'; ctx.fillText('DARK ROOM (across corridor)',w/2,h*0.18);
+      ctx.font='400 17px "IBM Plex Sans", sans-serif';
+      ['Dark-room conditions should be used','only for experiments requiring','controlled/low-light conditions.'].forEach(function(l,i){ ctx.fillText(l,w/2,h*0.4+i*h*0.19); });
+    });
+    mountOnWall(warn,22.5,5.4,5-WALL_T/2-0.03,Math.PI);
+  }
+
+  function buildHardening(){
+    var tx = [30.4,33.8,37.2,40.6];
+    var names = ['IN-VITRO PLANTLETS','ACCLIMATIZATION','ACCLIMATIZING','HARDENED PLANTS'];
+    var all = [];
+    tx.forEach(function(x,i){
+      var g = new THREE.Group(); g.position.set(x,0,-33.4); equipmentGroup.add(g);
+      g.add(at(box(2.5,1.4,1.8,0xC9C9B8,{}),0,0,0));
+      g.add(at(box(2.1,0.12,1.4,0x6B8E6B,{}),0,1.4,0));
+      for(var p=0;p<6;p++){
+        var px=-0.7+(p%3)*0.7, pz=-0.3+Math.floor(p/3)*0.6;
+        if(i===0){
+          g.add(at(cyl(0.15,0.15,0.45,0xDFF1EA,{transparent:true,opacity:0.5,metalness:0}),px,1.52,pz));
+          g.add(at(cyl(0.012,0.02,0.3,0x56B86A,{}),px,1.62,pz)); g.add(at(sph(0.07,0x56B86A,{}),px,1.98,pz));
+        } else {
+          var pot = cyl(0.14,0.11,0.22,i===1?0xBFE0CF:0xB26A3E,{roughness:0.8,metalness:0.05}); g.add(at(pot,px,1.52,pz));
+          var ph = [0.3,0.5,0.8][i-1];
+          g.add(at(cyl(0.015,0.025,ph,0x2E7D3E,{}),px,1.74,pz));
+          g.add(at(sph(0.08+i*0.05,0x3E9B52,{}),px,1.74+ph,pz));
+          if(i===3){ g.add(at(sph(0.14,0x2E7D3E,{}),px+0.1,1.74+ph*0.7,pz)); }
+        }
+      }
+      var lb = labelSprite(names[i],'rgba(10,20,17,0.78)','#8FE6C4',3.0,0.75); lb.position.set(0,4.2,0); g.add(lb);
+      g.add(hitBox(2.6,2.6,1.9,0,1.3,0));
+      tag(g,'plantstages');
+    });
+    var tent = new THREE.Mesh(new THREE.BoxGeometry(6.4,4.0,3.2), new THREE.MeshStandardMaterial({color:0xEAF6EF,transparent:true,opacity:0.18,roughness:0.3,depthWrite:false}));
+    tent.position.set(35.5,2.0,-33.1); tent.userData.noCollide = true; scene.add(tent);
+    var edges = new THREE.LineSegments(new THREE.EdgesGeometry(tent.geometry), new THREE.LineBasicMaterial({color:0x8FD6B0}));
+    edges.position.copy(tent.position); scene.add(edges);
+    tag(tent,'mist',{noSolid:true});
+
+    var pipe = cyl(0.08,0.08,9,0x4A8FB8,{metalness:0.2}); pipe.rotation.z = Math.PI/2; pipe.position.set(31.2,7.6,-33.1); scene.add(pipe);
+    [31.5,40.2].forEach(function(px){ var v = cyl(0.07,0.07,2.4,0x4A8FB8,{metalness:0.2}); v.position.set(px,7.6,-33.1); scene.add(v); });
+    [33.8,37.2].forEach(function(nx){
+      var nz = cyl(0.07,0.12,0.3,0x9AA6A1,{}); nz.position.set(nx,7.3,-33.1); scene.add(nz);
+      for(var d=0;d<6;d++){
+        var drop = box(0.05,0.12,0.05,0xBFE8FF,{transparent:true,opacity:0.7,emissive:0x8FD6FF,emissiveIntensity:0.5});
+        drop.position.set(nx+(Math.random()-0.5)*0.9, 2.6+Math.random()*4.5, -33.1+(Math.random()-0.5)*1.0);
+        drop.userData = {top:7.2,bot:2.6,speed:2.2+Math.random()*1.6,noCollide:true}; drop.castShadow=false;
+        scene.add(drop); mistDrops.push(drop);
+      }
+    });
+    var mistPipe = grp(35.5,-33.1,[at(box(0.2,0.2,0.2,0x4A8FB8,{}),0,7.5,0)]); mistPipe.visible = true;
+    tag(mistPipe,'mist',{noSolid:true});
+
+    var potting = bench(40.4,-16,7,2.4,Math.PI/2);
+    addTo(potting,-2.4,3.0,0,[box(1.0,0.6,0.7,0x6B4A2A,{roughness:0.95}), at(box(0.9,0.5,0.6,0x7A5A38,{roughness:0.95}),0.1,0.6,0)]);
+    addTo(potting,-0.8,3.0,0,[box(1.6,0.2,1.1,0x8D9A95,{}), at(box(1.4,0.1,0.9,0x6B4A2A,{roughness:0.95}),0,0.2,0)]);
+    for(var pp=0;pp<4;pp++){ addTo(potting,1.0+pp*0.2,3.0+pp*0.12,0,[cyl(0.22,0.17,0.3,0xB26A3E,{roughness:0.8,metalness:0.05})]); }
+    addTo(potting,2.6,3.0,0,[cyl(0.35,0.35,0.6,0x3E7FB0,{metalness:0.05})]);
+    tag(potting,'potting');
+    var tap = grp(41.55,-26,[at(cyl(0.07,0.07,0.9,0x9AA6A1,{}),0,3.1,0), at(cyl(0.05,0.05,0.5,0x9AA6A1,{}),-0.25,3.9,0)]);
+    tap.children[1].rotation.z = Math.PI/2; tap.children[1].position.set(-0.2,4.0,0);
+    tag(tap,'sink',{noSolid:true});
+    var drain = new THREE.Mesh(new THREE.CircleGeometry(0.55,20), new THREE.MeshStandardMaterial({color:0x333a37}));
+    drain.rotation.x = -Math.PI/2; drain.position.set(35,0.03,-22); scene.add(drain);
+    var dsign = labelSprite('FLOOR DRAIN','rgba(10,20,17,0.6)','#9FB8AF',2,0.5); dsign.position.set(35,1.0,-22); scene.add(dsign);
+
+    hardMonitor = screenPlane(2.2,1.4,260,160,function(ctx,w,h){ drawHardMon(ctx,w,h,27.0,82); });
+    mountOnWall(hardMonitor,28.28,4.8,-24,Math.PI/2);
+    tag(hardMonitor,'envmonitor',{noSolid:true});
+  }
+
+  function buildStorage(){
+    var cols = [-46.8,-42.15,-37.5], rows = [-31,-23,-15], idx = 0;
+    var tints = [0xE0DCEA,0xDDE6EE,0xE6EEE0];
+    rows.forEach(function(rz){ cols.forEach(function(cx){
+      var cat = STORAGE_CATEGORIES[idx];
+      buildCabinet(cat.id,cx,rz,2.0,3.4,1.4,tints[idx%3],0xCFC9DD,cat.label,'#8FE6C4',{lock:true,lw:3.8,lh:0.9});
+      idx++;
+    }); });
+    var tall = grp(-49.0,-14,shelfUnit(1.2,7.2,6,4,0xC9D2CE));
+    for(var i=0;i<4;i++){ for(var k=0;k<4;k++){ tall.add(at(box(0.8,0.6+(k%2)*0.2,1.0,[0xDDE6E3,0xE9DC8A,0x6FB3D9,0xD8C9B0][(i+k)%4],{}),0,0.33+i*1.9,-2.1+k*1.4)); } }
+    tall.add(at(labelSprite('TALL STORAGE RACK','rgba(10,20,17,0.78)','#8FE6C4',3.4,0.85),0,7.9,0));
+    tag(tall,'stor_vessels');
+    var fr = grp(-47.6,-33.5,[box(1.8,6.2,1.8,0xF1F4F2,{}), at(box(0.06,1.4,0.1,0x7D8B86,{}),0.7,3.2,0.95)]);
+    var fz = grp(-45.2,-33.5,[box(1.8,5.2,1.8,0xE7ECE9,{}), at(box(0.06,1.0,0.1,0x7D8B86,{}),0.7,2.5,0.95), at(box(0.5,0.3,0.04,0x0d1a15,{emissive:0x3FB58C,emissiveIntensity:0.4}),0,4.4,0.92)]);
+    tag(fr,'fridge'); tag(fz,'fridge');
+    mountOnWall(hazardSign('Wear PPE','ppe'),-35.25,6,-12,-Math.PI/2);
+  }
+
+  function buildChemStorage(){
+    var xs = linspace(-32.6,-25.4,5);
+    CHEM_CATEGORIES.forEach(function(c,i){
+      var tr = grp(xs[i],-33.8,[box(1.9,0.12,1.5,0x2B3330,{})]);
+      buildCabinet(c.id,xs[i],-33.9,1.6,3.0,1.2,0xEFE6C0,c.color,c.label,'#E9DC8A',{lift:0.12,lock:true,sign:!!c.sign,lw:3.0,lh:0.8,contents:[0xC9A25A,0xDDE6E3,0xD9695A,0x5C8FD6]});
+      var inv = signPlane(0.9,0.5,function(ctx,w,h){
+        ctx.fillStyle='#F6F2E2'; roundRect(ctx,0,0,w,h,6); ctx.fill(); ctx.fillStyle='#222'; ctx.font='600 14px sans-serif'; ctx.textAlign='left';
+        ctx.fillText('INVENTORY',6,18); ctx.font='400 12px sans-serif'; ctx.fillText('Check '+(i+1)+': monthly',6,36);
+      },80);
+      mountOnWall(inv,xs[i],3.7,-34.58,0);
+    });
+    var board = signPlane(3.2,2.4,function(ctx,w,h){
+      ctx.fillStyle='#12201A'; roundRect(ctx,0,0,w,h,12); ctx.fill();
+      ctx.strokeStyle='#E2C23A'; ctx.lineWidth=6; roundRect(ctx,5,5,w-10,h-10,10); ctx.stroke();
+      ctx.fillStyle='#E2C23A'; ctx.textAlign='center'; ctx.font='700 22px "IBM Plex Sans", sans-serif'; ctx.fillText('CHEMICAL SAFETY',w/2,h*0.14);
+      ctx.fillStyle='#F6F2E2'; ctx.textAlign='left'; ctx.font='400 15px "IBM Plex Sans", sans-serif';
+      ['Acids and bases stored apart','Spill trays under every cabinet','Wear gloves and goggles','Eyewash: next to the door','Check expiry dates monthly'].forEach(function(l,i){ ctx.fillText('\u2022 '+l,w*0.08,h*0.3+i*h*0.14); });
+    });
+    mountOnWall(board,-34.75,5.4,-12,Math.PI/2);
+    mountOnWall(hazardSign('Chemical Hazard','hazard'),-29,7.4,-34.72,0);
+    var ew = grp(-24.4,-8.5,[cyl(0.06,0.06,8,0x2E9E5B,{}), at(cyl(0.7,0.7,0.1,0x2E9E5B,{}),0,7.6,0), at(box(0.4,0.1,0.4,0xDADFDC,{}),0.1,2.4,0), at(cyl(0.3,0.3,0.15,0xDADFDC,{}),0.1,2.5,0.2)]);
+    ew.add(at(box(0.05,1.0,0.05,0xE2C23A,{}),0.35,6.3,0));
+    tag(ew,'eyewash');
+  }
+
+  function buildInstStorage(){
+    var b = bench(-17,-33.3,11,2.6,0);
+    function onB(x,parts,id){ var g = addTo(b,x+17,3.0,0,parts); tag(g,id,{noSolid:true}); return g; }
+    onB(-20.5,[box(0.9,0.12,0.8,0x2F3836,{}), at(cyl(0.07,0.07,1.0,0x555F5A,{}),0,0.12,0.25), at(box(0.15,0.15,0.8,0x555F5A,{}),0,0.95,0.0),
+      at(cyl(0.1,0.1,0.8,0x2F3836,{}),0,0.4,-0.1), at(box(0.5,0.05,0.5,0xBDC7C3,{}),0,0.35,-0.05), at(cyl(0.05,0.05,0.35,0x222,{}),0,1.0,-0.2)],'microscope');
+    onB(-17.5,[box(1.1,0.55,1.1,0xC7CDC9,{}), at(cyl(0.5,0.5,0.2,0xE9ECEA,{metalness:0.1}),0,0.55,0), at(box(0.4,0.2,0.04,0x0d1a15,{emissive:0x3FB58C,emissiveIntensity:0.4}),0,0.2,-0.56)],'centrifuge');
+    onB(-14.2,[box(1.5,0.35,1.2,0xC7CDC9,{}), at(box(1.3,0.06,1.0,0xDDE6E3,{}),0,0.35,0), at(flask(0.7),-0.35,0.41,0), at(flask(0.7),0.1,0.41,0.1), at(flask(0.7),0.5,0.41,-0.1)],'shaker');
+    onB(-12.2,[cyl(0.35,0.35,0.1,0x2F3836,{}), at(cyl(0.05,0.05,0.9,0x3E7FB0,{}),-0.15,0.1,0), at(cyl(0.05,0.05,0.9,0xE0C23A,{}),0,0.1,0.12), at(cyl(0.05,0.05,0.9,0xD24B4B,{}),0.14,0.1,0), at(cyl(0.05,0.05,0.9,0x58B07A,{}),0,0.1,-0.14)],'micropipette');
+    var cons = grp(-22.1,-12,shelfUnit(1.2,5.6,5,4,0xD8D8E4));
+    for(var i=0;i<4;i++){ for(var k=0;k<4;k++){ cons.add(at(box(0.8,0.4,0.9,[0xDDE6E3,0xE9DC8A,0xB8C3BE,0x6FB3D9][(i+k)%4],{}),0,0.33+i*1.35,-1.8+k*1.2)); } }
+    cons.add(at(labelSprite('CONSUMABLES','rgba(10,20,17,0.78)','#8FE6C4',3.0,0.75),0,6.2,0));
+    tag(cons,'stor_consumables');
+    var tips = bench(-14,-14,5,2.2,0);
+    for(var t=0;t<5;t++){ addTo(tips,-1.8+t*0.9,3.0,0,[box(0.6,0.3,0.4,[0x3E7FB0,0xE0C23A,0xD24B4B,0x58B07A,0xE9ECEA][t],{})]); }
+  }
+
+  function buildWaste(){
+    var room = roomById.waste;
+    var xs = linspace(room.x1+1.6,room.x2-1.6,5);
+    WASTE_BINS.forEach(function(w,i){
+      var g = grp(xs[i],-33.4,[makeBin(w.color,w.r,w.h)]);
+      var lbl = labelSprite(w.label,'rgba(10,20,17,0.78)','#F2E9C2',2.5,0.62); lbl.position.set(0,w.h+1.0,0); g.add(lbl);
+      tag(g,w.id);
+    });
+    var flow = signPlane(7.0,1.7,function(ctx,w,h){
+      ctx.fillStyle='#12201A'; roundRect(ctx,0,0,w,h,14); ctx.fill();
+      ctx.strokeStyle='#3FB58C'; ctx.lineWidth=5; roundRect(ctx,5,5,w-10,h-10,12); ctx.stroke();
+      var steps=['USED MATERIAL','SEGREGATION','COLLECTION','TREATMENT / DISPOSAL'];
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      var bw=(w-60)/4;
+      steps.forEach(function(s,i){
+        var x=20+i*(bw+7);
+        ctx.fillStyle='rgba(63,181,140,0.2)'; roundRect(ctx,x,h*0.28,bw-14,h*0.44,8); ctx.fill();
+        ctx.fillStyle='#8FE6C4'; fitText(ctx,s,bw-30,16,'700','"IBM Plex Sans", sans-serif'); ctx.fillText(s,x+(bw-14)/2,h*0.5);
+        if(i<3){ ctx.fillStyle='#E2C23A'; ctx.font='700 26px sans-serif'; ctx.fillText('\u2192',x+bw-7,h*0.5); }
+      });
+      ctx.fillStyle='#9FB8AF'; ctx.font='400 14px "IBM Plex Sans", sans-serif'; ctx.fillText('Waste workflow',w/2,h*0.12);
+    });
+    mountOnWall(flow,46,6.6,-34.72,0);
+    mountOnWall(hazardSign('Biohazard','bio'),42.28,6.0,-28,Math.PI/2);
+    mountOnWall(hazardSign('Sharps','sharps'),49.72,6.0,-30,-Math.PI/2);
+    mountOnWall(hazardSign('Chemical Hazard','hazard'),49.72,6.0,-26,-Math.PI/2);
+  }
+
+  function buildCorridorProps(){
+    var fx = grp(-46,-4.35,[cyl(0.18,0.18,1.1,0xD24B4B,{metalness:0.1}), at(cyl(0.06,0.06,0.25,0x222,{}),0,1.1,0), at(box(0.3,0.08,0.14,0x222,{}),0.1,1.3,0)]);
+    fx.position.y = 1.7; fx.add(at(box(0.5,0.1,0.25,0x555F5A,{}),0,0,0.1));
+    tag(fx,'fireext',{noSolid:true});
+    mountOnWall(hazardSign('Fire Extinguisher','fire'),-46,5.6,-4.72,0);
+    var fa = grp(-40,-4.5,[box(0.9,0.7,0.3,0xFFFFFF,{}), at(box(0.45,0.1,0.04,0xD24B4B,{}),0,0.3,-0.17), at(box(0.1,0.45,0.04,0xD24B4B,{}),0,0.13,-0.17)]);
+    fa.position.y = 3.4; fa.rotation.y = 0;
+    tag(fa,'firstaid',{noSolid:true});
+    mountOnWall(hazardSign('First Aid','firstaid'),-40,5.6,-4.72,0);
+    var es = grp(-33,-4.6,[box(0.7,0.9,0.15,0xE2C23A,{}), at(cyl(0.2,0.25,0.15,0xD24B4B,{metalness:0.1}),0,0.5,-0.08)]);
+    es.position.y = 3.4; es.children[1].rotation.x = -Math.PI/2; es.children[1].position.set(0,0.35,-0.15);
+    tag(es,'estop',{noSolid:true});
+    var ex = hazardSign('Emergency Exit','exit'); ex.scale.set(0.9,0.9,1);
+    mountOnWall(ex,50-WALL_T/2-0.04,9.1,0,-Math.PI/2);
+    var exit2 = hazardSign('Exit \u2192','exit'); mountOnWall(exit2,40,8.6,-4.72,0);
+    mountOnWall(hazardSign('No Food / Drink','food'),0,6.2,-4.72,0);
+    mountOnWall(hazardSign('Biohazard','bio'),14,6.2,4.72,Math.PI);
+  }
+
+  /* ============================================================
+     MODULE: assemble
+  ============================================================ */
+  buildAllWalls();
+  buildFloorsAndCeiling();
+  buildEntry(); buildHandwash(); buildWashing(); buildMediaPrep(); buildSterilization();
+  buildTransfer(); buildCulture(); buildDarkroom(); buildHardening();
+  buildStorage(); buildChemStorage(); buildInstStorage(); buildWaste(); buildCorridorProps();
+  finalizeInstances();
+
+  /* ============================================================
+     MODULE: lighting state + equipment toggles
+  ============================================================ */
+  var currentRoomId = 'entry';
+  var dayNightMode = 'day';
+  var btnDayNight = document.getElementById('btn-daynight');
+
+  function refreshLighting(){
+    var day = dayNightMode==='day';
+    var inDark = (currentRoomId==='darkroom' && !STATE.darkroomlight.on);
+    ambientLight.intensity = inDark ? 0.02 : (day ? 0.6 : 0.2);
+    sunLight.intensity = inDark ? 0 : (day ? 0.5 : 0.1);
+    var k = day ? 1 : 1.25;
+    LIGHT_DEFS.forEach(function(L){
+      var v = L.base*k;
+      if(L.id==='dark') v = STATE.darkroomlight.on ? 1.0 : 0.0;
+      if(L.id==='culture') v = (STATE.growthlights.on ? 1.0 : 0.25)*k;
+      if(inDark && L.id!=='dark') v *= 0.03;
+      L.light.intensity = v;
+      if(L.id==='transfer'){ L.light.color.set(STATE.laf.uv ? 0x8A5CFF : 0xfff1d6); if(STATE.laf.uv) L.light.intensity = 1.4; }
+    });
+    emergencyLight.intensity = 0.35;
+    roomById.darkroom.fixtures.forEach(function(f){ f.material.emissiveIntensity = STATE.darkroomlight.on ? 0.8 : 0; });
+    if(darkSwitchLed) darkSwitchLed.material.emissiveIntensity = STATE.darkroomlight.on ? 0.1 : 0.9;
+    var bg = inDark ? 0x000000 : (day ? 0xC9D6D0 : 0x0B1512);
+    scene.background.set(bg); scene.fog.color.set(bg);
+  }
+  function setDayNight(mode){
+    dayNightMode = mode;
+    btnDayNight.textContent = mode==='day' ? 'Day mode' : 'Night mode';
+    refreshLighting();
+    try{ localStorage.setItem('ptc_lab_daynight',mode); }catch(e){}
+  }
+  btnDayNight.addEventListener('click', function(){ setDayNight(dayNightMode==='day'?'night':'day'); });
+
+  function redrawScreen(m,fn,a,b){ var r=m.userData.canvasRef; fn(r.ctx,r.w,r.h,a,b); r.tex.needsUpdate=true; }
+  function updateLAFVisual(){
+    lafAirflow.forEach(function(p){ p.visible = STATE.laf.on; });
+    if(lafCleanZone) lafCleanZone.visible = STATE.laf.on;
+    lafStatusLight.material.color.set(STATE.laf.on?0x3FE28A:0x555555);
+    lafStatusLight.material.emissive.set(STATE.laf.on?0x2fbf6f:0x000000);
+    lafStatusLight.material.emissiveIntensity = STATE.laf.on?0.9:0;
+    lafUvBulb.material.emissiveIntensity = STATE.laf.uv?1.0:0;
+    hepaMesh.material.emissiveIntensity = STATE.laf.on?0.5:0.12;
+    redrawScreen(lafPanel,drawLAF);
+    refreshLighting();
+  }
+  function updateOvenVisual(){
+    ovenLed.material.color.set(STATE.hotairoven.on?0xE2703A:0x333333);
+    ovenLed.material.emissive.set(STATE.hotairoven.on?0xE2703A:0x000000);
+    ovenLed.material.emissiveIntensity = STATE.hotairoven.on?0.9:0;
+  }
+  function updateGrowthLights(){
+    var on = STATE.growthlights.on;
+    cultureBars.forEach(function(b){ b.material.emissiveIntensity = on?0.9:0.04; });
+    if(cultureCtrl){ cultureCtrl.material.color.set(on?0x3FE08A:0xE2685A); cultureCtrl.material.emissive.set(on?0x3FE08A:0xE2685A); }
+    refreshLighting();
+    redrawScreen(cultureMonitor,drawCultureMon,monitorVals.c[0],monitorVals.c[1]);
+  }
+  function updateDarkroomLight(){
+    refreshLighting();
+    redrawScreen(darkMonitor,drawDarkMon,monitorVals.d[0],monitorVals.d[1]);
+  }
+  function updateMistVisual(){
+    mistDrops.forEach(function(d){ d.visible = STATE.mist.on; });
+    redrawScreen(hardMonitor,drawHardMon,monitorVals.h[0],monitorVals.h[1]);
+  }
+  function applyToggleEffects(id){
+    if(id==='laf') updateLAFVisual(); else if(id==='hotairoven') updateOvenVisual();
+    else if(id==='growthlights') updateGrowthLights(); else if(id==='darkroomlight') updateDarkroomLight();
+    else if(id==='mist') updateMistVisual();
+  }
+  var TOGGLEABLE = {laf:1,autoclave:1,hotairoven:1,growthlights:1,darkroomlight:1,mist:1};
+
+  function toggleEquipment(id){
+    var s = STATE[id]; if(!s) return;
+    if(id==='autoclave'){
+      if(!s.on){ s.on=true; s.phase='heating'; s.timer=0; s.temp=25; s.pressure=0; }
+      else { s.on=false; s.phase='idle'; s.timer=0; s.temp=25; s.pressure=0; redrawScreen(autoclavePanel,drawAutoclave); setAutoclaveLed(); }
+    } else if(id==='laf'){
+      s.on = !s.on;
+      if(!s.on && s.uv){ s.uv=false; }
+    } else { s.on = !s.on; }
+    applyToggleEffects(id);
+    if(selectedKind==='info' && selectedId===id) renderInfoPanel(id);
+  }
+  function toggleUV(){
+    if(STATE.laf.uv){ STATE.laf.uv=false; uvBlockedMsg=false; updateLAFVisual(); renderInfoPanel('laf'); return; }
+    uvConfirmPending = true; uvBlockedMsg = false; renderInfoPanel('laf');
+  }
+  function confirmUV(){
+    uvConfirmPending = false;
+    if(currentRoomId==='transfer'){ uvBlockedMsg = true; renderInfoPanel('laf'); return; }
+    STATE.laf.uv = true; uvBlockedMsg = false; updateLAFVisual(); renderInfoPanel('laf');
+    toast('UV lamp ON. Do not enter the Inoculation / Transfer Room while it is running.');
+  }
+  function cancelUV(){ uvConfirmPending=false; uvBlockedMsg=false; renderInfoPanel('laf'); }
+
+  function setAutoclaveLed(){
+    var s = STATE.autoclave, col = 0x555555, em = 0;
+    if(s.phase==='heating'||s.phase==='sterilizing'){ col=0xE2A23A; em=0.9; }
+    else if(s.phase==='cooling'){ col=0x4FA3E0; em=0.8; }
+    else if(s.phase==='complete'){ col=0x3FE28A; em=0.9; }
+    autoclaveLed.material.color.set(col); autoclaveLed.material.emissive.set(em?col:0x000000); autoclaveLed.material.emissiveIntensity = em;
+  }
+  var lastAcPhase = 'idle';
+  function stepAutoclave(dt){
+    var s = STATE.autoclave; if(!s.on) return;
+    s.timer += dt;
+    if(s.phase==='heating'){
+      s.temp = Math.min(121,s.temp+dt*14); s.pressure = Math.min(15,s.pressure+dt*1.7);
+      if(s.temp>=121 && s.pressure>=15){ s.phase='sterilizing'; s.timer=0; }
+    } else if(s.phase==='sterilizing'){
+      if(s.timer>14){ s.phase='cooling'; s.timer=0; }
+    } else if(s.phase==='cooling'){
+      s.temp = Math.max(25,s.temp-dt*9); s.pressure = Math.max(0,s.pressure-dt*1.4);
+      if(s.temp<=25.2 && s.pressure<=0.2){ s.phase='complete'; s.on=false; s.temp=25; s.pressure=0; toast('Autoclave cycle complete. Pressure is zero, so it is safe to open.'); if(selectedKind==='info'&&selectedId==='autoclave') renderInfoPanel('autoclave'); }
+    }
+    if(s.phase!==lastAcPhase){ lastAcPhase = s.phase; setAutoclaveLed(); }
+    redrawScreen(autoclavePanel,drawAutoclave);
+    if(selectedKind==='info' && selectedId==='autoclave') refreshAutoclaveReadout();
+  }
+  function stepLAF(dt){
+    if(!STATE.laf.on) return;
+    lafAirflow.forEach(function(p){ p.position.z -= dt*2.4; if(p.position.z < -1.0) p.position.z = 0.95; });
+  }
+  function stepMist(dt){
+    if(!STATE.mist.on) return;
+    mistDrops.forEach(function(d){ d.position.y -= d.userData.speed*dt; if(d.position.y < d.userData.bot) d.position.y = d.userData.top; });
+  }
+  var monTimer = 0, monT = 0;
+  function stepMonitors(dt){
+    monT += dt; monTimer += dt;
+    if(monTimer < 0.5) return; monTimer = 0;
+    monitorVals.c = [24.6+Math.sin(monT*0.3)*0.3, 58+Math.sin(monT*0.22)*2];
+    monitorVals.d = [22.5+Math.sin(monT*0.25+1)*0.3, 55+Math.sin(monT*0.2+1)*2];
+    monitorVals.h = [27.0+Math.sin(monT*0.27+2)*0.4, 82+Math.sin(monT*0.18+2)*3];
+    redrawScreen(cultureMonitor,drawCultureMon,monitorVals.c[0],monitorVals.c[1]);
+    redrawScreen(darkMonitor,drawDarkMon,monitorVals.d[0],monitorVals.d[1]);
+    redrawScreen(hardMonitor,drawHardMon,monitorVals.h[0],monitorVals.h[1]);
+  }
+  function toggleDoor(id){
+    var d = DOOR_REGISTRY[id]; if(!d) return;
+    d.open = !d.open; d.targetY = d.open ? d.openY : d.closedY;
+    var idx = collisionSegments.indexOf(d.seg);
+    if(d.open){ if(idx>=0) collisionSegments.splice(idx,1); } else if(idx<0){ collisionSegments.push(d.seg); }
+    if(id==='door_dark'){ refreshLighting(); }
+  }
+
+  /* ============================================================
+     MODULE: movement + collision
+  ============================================================ */
+  function segDist(px,pz,x1,z1,x2,z2){
+    var dx=x2-x1, dz=z2-z1, len2=dx*dx+dz*dz;
+    var t = len2>0 ? ((px-x1)*dx+(pz-z1)*dz)/len2 : 0; t = Math.max(0,Math.min(1,t));
+    return Math.hypot(px-(x1+t*dx), pz-(z1+t*dz));
+  }
+  function collides(px,pz){
+    var lim = PLAYER_R+WALL_T/2+0.05, i;
+    for(i=0;i<collisionSegments.length;i++){ var w=collisionSegments[i]; if(segDist(px,pz,w.x1,w.z1,w.x2,w.z2)<lim) return true; }
+    for(i=0;i<colliders.length;i++){
+      var c=colliders[i], cx=Math.max(c.minx,Math.min(px,c.maxx)), cz=Math.max(c.minz,Math.min(pz,c.maxz));
+      if(Math.hypot(px-cx,pz-cz)<PLAYER_R) return true;
+    }
+    return false;
+  }
+  function tryMove(dx,dz){
+    var nx=camera.position.x+dx, nz=camera.position.z;
+    if(!collides(nx,nz)) camera.position.x = nx;
+    nx=camera.position.x; nz=camera.position.z+dz;
+    if(!collides(nx,nz)) camera.position.z = nz;
+  }
+  function findFreeSpot(x,z){
+    if(!collides(x,z)) return {x:x,z:z};
+    for(var r=1;r<16;r+=1){ for(var a=0;a<12;a++){
+      var nx=x+Math.cos(a*Math.PI/6)*r, nz=z+Math.sin(a*Math.PI/6)*r;
+      if(!collides(nx,nz) && findRoomAt(nx,nz)) return {x:nx,z:nz};
+    }}
+    return {x:x,z:z};
+  }
+  var keys = new Set();
+  function updateMovement(dt){
+    var fwd=0, strafe=0;
+    if(keys.has('w')||keys.has('arrowup')) fwd+=1;
+    if(keys.has('s')||keys.has('arrowdown')) fwd-=1;
+    if(keys.has('a')||keys.has('arrowleft')) strafe-=1;
+    if(keys.has('d')||keys.has('arrowright')) strafe+=1;
+    if(!fwd && !strafe) return;
+    var len = Math.hypot(fwd,strafe)||1; fwd/=len; strafe/=len;
+    var yaw = camera.rotation.y;
+    var dx = (-Math.sin(yaw)*fwd + Math.cos(yaw)*strafe)*MOVE_SPEED*dt;
+    var dz = (-Math.cos(yaw)*fwd - Math.sin(yaw)*strafe)*MOVE_SPEED*dt;
+    tryMove(dx,dz);
+  }
+  window.addEventListener('keydown',function(e){
+    var k = e.key.toLowerCase();
+    keys.add(k);
+    if(e.key==='Escape'){ closeSidePanel(); closeModal(); }
+    if(k==='e' && !e.repeat && !/INPUT|TEXTAREA/.test(document.activeElement.tagName)) doInteract();
+  });
+  window.addEventListener('keyup',function(e){ keys.delete(e.key.toLowerCase()); });
+  window.addEventListener('blur',function(){ keys.clear(); });
+  [['dp-f','w'],['dp-b','s'],['dp-l','a'],['dp-r','d']].forEach(function(p){
+    var el = document.getElementById(p[0]);
+    function down(ev){ ev.preventDefault(); keys.add(p[1]); }
+    function up(ev){ ev.preventDefault(); keys.delete(p[1]); }
+    el.addEventListener('mousedown',down); el.addEventListener('mouseup',up); el.addEventListener('mouseleave',up);
+    el.addEventListener('touchstart',down,{passive:false}); el.addEventListener('touchend',up,{passive:false}); el.addEventListener('touchcancel',up);
+  });
+
+  /* ============================================================
+     MODULE: look controls + picking
+  ============================================================ */
+  var isDown=false, lastX=0, lastY=0, downTime=0, moved=0;
+  function pt(e){ var t = (e.touches&&e.touches[0]) || (e.changedTouches&&e.changedTouches[0]); return t?{x:t.clientX,y:t.clientY}:{x:e.clientX,y:e.clientY}; }
+  function onDown(e){ isDown=true; container.classList.add('dragging'); var p=pt(e); lastX=p.x; lastY=p.y; downTime=performance.now(); moved=0; }
+  function onMove(e){
+    if(!isDown) return;
+    var p=pt(e), dx=p.x-lastX, dy=p.y-lastY; lastX=p.x; lastY=p.y; moved+=Math.abs(dx)+Math.abs(dy);
+    camera.rotation.y -= dx*LOOK_SENS;
+    camera.rotation.x = Math.max(-1.35,Math.min(1.35,camera.rotation.x - dy*LOOK_SENS));
+  }
+  function onUp(){
+    if(!isDown) return; isDown=false; container.classList.remove('dragging');
+    if(moved<6 && performance.now()-downTime<400) doInteract();
+  }
+  var cv = renderer.domElement;
+  cv.addEventListener('mousedown',onDown); window.addEventListener('mousemove',onMove); window.addEventListener('mouseup',onUp);
+  cv.addEventListener('touchstart',function(e){ e.preventDefault(); onDown(e); },{passive:false});
+  cv.addEventListener('touchmove',function(e){ e.preventDefault(); onMove(e); },{passive:false});
+  cv.addEventListener('touchend',function(e){ e.preventDefault(); onUp(e); },{passive:false});
+  cv.addEventListener('wheel',function(e){ e.preventDefault(); camera.fov = Math.max(40,Math.min(88,camera.fov+e.deltaY*0.02)); camera.updateProjectionMatrix(); },{passive:false});
+
+  var hoveredRoot = null, promptEl = document.getElementById('prompt');
+  function setHighlight(root,on){
+    if(!root || !root.userData.meshes) return;
+    root.userData.meshes.forEach(function(m){
+      if(!m.material || !m.material.emissive || m.material.isMeshBasicMaterial) return;
+      if(on){
+        if(m.userData._hl) return; m.userData._hl = true;
+        m.userData._pe = m.material.emissive.getHex(); m.userData._pi = m.material.emissiveIntensity;
+        m.material.emissive.set(0x3FB58C); m.material.emissiveIntensity = Math.max(0.4,m.material.emissiveIntensity||0);
+      } else if(m.userData._hl){
+        m.userData._hl = false; m.material.emissive.set(m.userData._pe); m.material.emissiveIntensity = m.userData._pi;
+      }
+    });
+  }
+  function pickTarget(){
+    raycaster.setFromCamera({x:0,y:0},camera);
+    var hits = raycaster.intersectObjects(interactables,true), hit=null, i;
+    for(i=0;i<hits.length;i++){
+      var o = hits[i].object;
+      if(!(o.userData.doorId || o.userData.interactId || o.userData.roomId)) continue;
+      if(o.isMesh && o.userData.canvasRef===undefined && o.geometry && o.material && o.material.visible===false && !o.userData.interactId) continue;
+      hit = hits[i]; break;
+    }
+    if(!hit || hit.distance>13) return null;
+    var walls = raycaster.intersectObjects(wallsGroup.children,false);
+    if(walls.length && walls[0].distance < hit.distance) return null;
+    return hit;
+  }
+  function updateHover(){
+    var hit = pickTarget(), obj = hit ? hit.object : null;
+    var root = obj ? (obj.userData.root || null) : null;
+    if(hoveredRoot && hoveredRoot!==root) setHighlight(hoveredRoot,false);
+    if(obj){
+      if(root) setHighlight(root,true);
+      var label = '';
+      if(obj.userData.doorId) label = 'Click to open / close: '+DOOR_REGISTRY[obj.userData.doorId].label;
+      else if(obj.userData.roomId) label = 'Click for room info: '+roomById[obj.userData.roomId].name;
+      else label = 'Click to inspect: '+(INFO[obj.userData.interactId]?INFO[obj.userData.interactId].name:'');
+      promptEl.textContent = label; promptEl.style.opacity = 1;
+    } else { promptEl.style.opacity = 0; }
+    hoveredRoot = root;
+  }
+  function doInteract(){
+    var hit = pickTarget(); if(!hit) return;
+    var o = hit.object;
+    if(o.userData.doorId) openDoorPanel(o.userData.doorId);
+    else if(o.userData.roomId){ labGuideActive=true; renderRoomGuide(roomById[o.userData.roomId]); }
+    else if(o.userData.interactId) openInfoPanel(o.userData.interactId);
+  }
+
+  /* ============================================================
+     MODULE: toast + room card + side panel
+  ============================================================ */
+  var toastEl = document.getElementById('toast'), toastTimer = null;
+  function toast(msg){ toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(function(){ toastEl.classList.remove('show'); }, 4200); }
+  var roomCard = document.getElementById('room-card'), roomCardTimer = null;
+  function showRoomCard(room){
+    roomCard.innerHTML = '<div class="rc-name">'+room.name+'</div><div class="rc-purpose">'+room.purpose+'</div>'+
+      '<div class="rc-line"><b>Equipment:</b> '+room.equipment.slice(0,4).join(', ')+'</div>'+
+      '<div class="rc-line safety"><b>Safety:</b> '+room.safety[0]+'</div><button id="rc-more">Open Lab Guide</button>';
+    roomCard.classList.add('show'); clearTimeout(roomCardTimer);
+    roomCardTimer = setTimeout(function(){ roomCard.classList.remove('show'); }, 9000);
+    document.getElementById('rc-more').onclick = function(){ labGuideActive=true; renderRoomGuide(room); roomCard.classList.remove('show'); };
+  }
+
+  var sidePanel = document.getElementById('side-panel'), spBody = document.getElementById('sp-body'), spFoot = document.getElementById('sp-foot');
+  var selectedId = null, selectedKind = null, labGuideActive = false;
+  function openSidePanel(){ sidePanel.classList.add('open'); }
+  function closeSidePanel(){ sidePanel.classList.remove('open'); selectedId=null; selectedKind=null; uvConfirmPending=false; uvBlockedMsg=false; labGuideActive=false; }
+  document.getElementById('sp-close').addEventListener('click',closeSidePanel);
+  document.getElementById('sp-about-btn').addEventListener('click',function(){ var h=document.getElementById('sec-about'); if(h) h.scrollIntoView({behavior:'smooth',block:'start'}); });
+  document.getElementById('sp-safety-btn').addEventListener('click',function(){ var h=document.getElementById('sec-safety'); if(h) h.scrollIntoView({behavior:'smooth',block:'start'}); });
+
+  function refreshAutoclaveReadout(){
+    var el = document.getElementById('autoclave-readout'); if(!el) return;
+    var s = STATE.autoclave;
+    el.innerHTML = 'Status: '+s.phase.toUpperCase()+'<br>Temperature: '+s.temp.toFixed(1)+' \u00B0C<br>Pressure: '+s.pressure.toFixed(1)+' psi<br>Time: '+s.timer.toFixed(0)+' s';
+  }
+  function renderInfoPanel(id){
+    var info = INFO[id]; if(!info) return;
+    selectedId = id; selectedKind = 'info';
+    var st = '';
+    if(TOGGLEABLE[id]){
+      var on = STATE[id].on;
+      var label = (id==='autoclave') ? (on?'RUNNING':'OFF') : (on?'ON':'OFF');
+      st += '<div class="status-row"><span class="dot '+(on?'on':'')+'"></span><span>Status: '+label+'</span></div>';
+      if(id==='laf'){
+        st += '<div class="readout">Airflow visualization: '+(on?'ACTIVE':'OFF')+'<br>HEPA filtration: '+(on?'ACTIVE':'STANDBY')+'<br>UV lamp: '+(STATE.laf.uv?'ON':'OFF')+'</div>';
+      }
+      if(id==='autoclave'){
+        var s = STATE.autoclave;
+        st += '<div class="readout" id="autoclave-readout">Status: '+s.phase.toUpperCase()+'<br>Temperature: '+s.temp.toFixed(1)+' \u00B0C<br>Pressure: '+s.pressure.toFixed(1)+' psi<br>Time: '+s.timer.toFixed(0)+' s</div>';
+      }
+    }
+    if(CABINETS[id]){
+      st += '<div class="status-row"><span class="dot '+(CABINETS[id].userData.cabinet.open?'on':'')+'"></span><span>Cabinet: '+(CABINETS[id].userData.cabinet.open?'OPEN':'CLOSED')+'</span></div>';
+    }
+    spBody.innerHTML = '<h2>'+info.name+'</h2>'+st+
+      '<h3 id="sec-about">Purpose</h3><p>'+info.purpose+'</p>'+
+      '<h3>Basic Working Principle</h3><p>'+info.principle+'</p>'+
+      '<h3>Typical Laboratory Use</h3><p>'+info.use+'</p>'+
+      '<h3 id="sec-safety" class="safety-h">Safety Precautions</h3><p class="safety-p">'+info.safety+'</p>';
+    var f = '';
+    if(TOGGLEABLE[id]){
+      var isOn = STATE[id].on;
+      var txt = id==='laf' ? (isOn?'Turn LAF OFF':'Turn LAF ON') : (id==='autoclave' ? (isOn?'Stop cycle':'Start cycle') : (isOn?'Turn OFF':'Turn ON'));
+      f += '<button class="btn-toggle '+(isOn?'off':'')+'" id="btn-toggle-eq">'+txt+'</button>';
+    }
+    if(id==='laf'){
+      if(uvBlockedMsg){ f += '<div class="uv-warn">Interlock: the UV lamp cannot start while you are inside the Inoculation / Transfer Room. Leave the room, then try again from the Equipment directory.</div>'; }
+      if(uvConfirmPending && !STATE.laf.uv){
+        f += '<div class="uv-warn">\u26A0 UV exposure must be avoided while personnel are present. Step out of the room before activating.</div>'+
+             '<button class="btn-toggle warn" id="btn-uv-confirm">Confirm: room is empty</button><button class="btn-toggle ghost" id="btn-uv-cancel">Cancel</button>';
+      } else {
+        f += '<button class="btn-toggle '+(STATE.laf.uv?'warn':'ghost')+'" id="btn-uv-toggle">'+(STATE.laf.uv?'Turn UV OFF':'Turn UV ON')+'</button>';
+      }
+    }
+    if(CABINETS[id]){
+      f += '<button class="btn-toggle '+(CABINETS[id].userData.cabinet.open?'off':'')+'" id="btn-cab">'+(CABINETS[id].userData.cabinet.open?'Close cabinet':'Open cabinet')+'</button>';
+    }
+    spFoot.innerHTML = f;
+    var b;
+    if((b=document.getElementById('btn-toggle-eq'))) b.onclick = function(){ toggleEquipment(id); };
+    if((b=document.getElementById('btn-uv-toggle'))) b.onclick = toggleUV;
+    if((b=document.getElementById('btn-uv-confirm'))) b.onclick = confirmUV;
+    if((b=document.getElementById('btn-uv-cancel'))) b.onclick = cancelUV;
+    if((b=document.getElementById('btn-cab'))) b.onclick = function(){ setCabinet(id,!CABINETS[id].userData.cabinet.open); renderInfoPanel(id); };
+    openSidePanel();
+  }
+  function openInfoPanel(id){
+    uvConfirmPending=false; uvBlockedMsg=false; labGuideActive=false;
+    if(CABINETS[id] && !CABINETS[id].userData.cabinet.open) setCabinet(id,true);
+    renderInfoPanel(id);
+  }
+  function openDoorPanel(id){
+    var d = DOOR_REGISTRY[id]; if(!d) return;
+    selectedId=id; selectedKind='door'; labGuideActive=false;
+    spBody.innerHTML = '<h2>'+d.label+'</h2><div class="status-row"><span class="dot '+(d.open?'on':'')+'"></span><span>'+(d.open?'OPEN':'CLOSED')+'</span></div>'+
+      '<h3 id="sec-about">Purpose</h3><p>'+(id==='door_dark'?'A light-proof door that keeps the dark room free of stray light.':(id==='door_transfer'?'Separates the clean, aseptic transfer room from the corridor. Keep it closed during aseptic work.':'Connects this room to the circulation path. Shown here as an overhead roll-up door.'))+'</p>'+
+      '<h3 id="sec-safety" class="safety-h">Safety</h3><p class="safety-p">Never block a door open or shut during an emergency evacuation.</p>';
+    spFoot.innerHTML = '<button class="btn-toggle" id="btn-door">'+(d.open?'Close door':'Open door')+'</button>';
+    document.getElementById('btn-door').onclick = function(){ toggleDoor(id); openDoorPanel(id); };
+    openSidePanel();
+  }
+  function renderRoomGuide(room){
+    selectedId=room.id; selectedKind='room';
+    var li = function(a){ return a.map(function(e){ return '<li>'+e+'</li>'; }).join(''); };
+    spBody.innerHTML = '<h2>'+room.name+'</h2>'+
+      '<h3 id="sec-about">Purpose</h3><p>'+room.purpose+'</p>'+
+      '<h3>Main Activities</h3><ul>'+li(room.activities)+'</ul>'+
+      '<h3>Important Equipment</h3><ul>'+li(room.equipment)+'</ul>'+
+      '<h3 id="sec-safety" class="safety-h">Safety Notes</h3><ul class="safety-p">'+li(room.safety)+'</ul>';
+    spFoot.innerHTML = '';
+    openSidePanel();
+  }
+
+  /* ============================================================
+     MODULE: current room tracking
+  ============================================================ */
+  var roomTagEl = document.getElementById('room-tag'), mmRoomEl = document.getElementById('mm-room');
+  function findRoomAt(x,z){
+    for(var i=0;i<ROOMS.length;i++){ var r=ROOMS[i]; if(x>=r.x1 && x<=r.x2 && z>=r.z1 && z<=r.z2) return r; }
+    return null;
+  }
+  function updateCurrentRoom(){
+    var r = findRoomAt(camera.position.x,camera.position.z);
+    var id = r ? r.id : currentRoomId;
+    if(id!==currentRoomId){
+      var prev = currentRoomId; currentRoomId = id;
+      var room = roomById[id];
+      roomTagEl.textContent = room.name;
+      mmRoomEl.textContent = room.short;
+      refreshLighting();
+      if(id==='transfer' && STATE.laf.uv){
+        STATE.laf.uv = false; updateLAFVisual();
+        toast('Safety interlock: UV lamp switched off because someone entered the transfer room.');
+        if(selectedKind==='info' && selectedId==='laf') renderInfoPanel('laf');
+      }
+      if(labGuideActive) renderRoomGuide(room);
+      else if(id!=='corridor') showRoomCard(room);
+    }
+  }
+
+  /* ============================================================
+     MODULE: minimap + teleport
+  ============================================================ */
+  var MM_SCALE = 3, mmCanvas = document.getElementById('minimap'), mmCtx = mmCanvas.getContext('2d');
+  function hexColor(n){ return '#'+('000000'+n.toString(16)).slice(-6); }
+  function paintMap(ctx,scale,withLabels){
+    var X = function(x){ return (x+50)*scale; }, Y = function(z){ return (35-z)*scale; };
+    ROOMS.forEach(function(r){
+      ctx.fillStyle = r.id==='darkroom' ? '#59655F' : hexColor(r.floorColor);
+      ctx.fillRect(X(r.x1),Y(r.z2),(r.x2-r.x1)*scale,(r.z2-r.z1)*scale);
+      ctx.strokeStyle='rgba(10,30,25,0.5)'; ctx.lineWidth=1.5;
+      ctx.strokeRect(X(r.x1),Y(r.z2),(r.x2-r.x1)*scale,(r.z2-r.z1)*scale);
+      if(withLabels){
+        ctx.fillStyle = r.id==='darkroom' ? '#EAF3EF' : '#12201A';
+        ctx.font = '600 '+(withLabels===2?13:8)+'px "IBM Plex Sans", sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(withLabels===2 ? r.name : r.short, X((r.x1+r.x2)/2), Y((r.z1+r.z2)/2));
+      }
+    });
+    ctx.fillStyle = '#1F8A63';
+    DOORWAYS.forEach(function(d){
+      if(d.horizontal) ctx.fillRect(X(d.x-d.w/2),Y(d.z)-2,d.w*scale,4);
+      else ctx.fillRect(X(d.x)-2,Y(d.z+d.w/2),4,d.w*scale);
+    });
+  }
+  function drawPlayer(ctx,scale){
+    var px=(camera.position.x+50)*scale, py=(35-camera.position.z)*scale;
+    ctx.save(); ctx.translate(px,py); ctx.rotate(-camera.rotation.y);
+    ctx.fillStyle='#C0562A'; ctx.strokeStyle='#fff'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.moveTo(0,-8); ctx.lineTo(5.5,6); ctx.lineTo(-5.5,6); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  function drawMinimap(){
+    mmCtx.clearRect(0,0,mmCanvas.width,mmCanvas.height);
+    paintMap(mmCtx,MM_SCALE,1);
+    if(learning.active){
+      var lr = roomById[LEARNING_SEQUENCE[learning.step].room];
+      mmCtx.strokeStyle='#1F8A63'; mmCtx.lineWidth=3;
+      mmCtx.strokeRect((lr.x1+50)*MM_SCALE+1,(35-lr.z2)*MM_SCALE+1,(lr.x2-lr.x1)*MM_SCALE-2,(lr.z2-lr.z1)*MM_SCALE-2);
+    }
+    drawPlayer(mmCtx,MM_SCALE);
+  }
+  function teleportTo(room){
+    var p = findFreeSpot((room.x1+room.x2)/2,(room.z1+room.z2)/2);
+    camera.position.set(p.x,EYE_H,p.z);
+    closeSidePanel();
+  }
+  mmCanvas.addEventListener('click',function(e){
+    var rect = mmCanvas.getBoundingClientRect();
+    var mx=(e.clientX-rect.left)*(mmCanvas.width/rect.width), my=(e.clientY-rect.top)*(mmCanvas.height/rect.height);
+    var room = findRoomAt(mx/MM_SCALE-50, 35-my/MM_SCALE);
+    if(room) teleportTo(room);
+  });
+
+  /* ============================================================
+     MODULE: learning mode
+  ============================================================ */
+  var learning = {active:false, step:0};
+  var learnBanner = document.getElementById('learn-banner'), btnLearn = document.getElementById('btn-learn');
+  var learnArrow = new THREE.Mesh(new THREE.ConeGeometry(0.5,1.2,14), new THREE.MeshBasicMaterial({color:0x3FE0A0,transparent:true,opacity:0.95,depthTest:false}));
+  learnArrow.rotation.x = Math.PI; learnArrow.renderOrder = 20; learnArrow.visible = false; scene.add(learnArrow);
+  var arrowBase = 6;
+  function placeArrow(){
+    if(!learning.active){ learnArrow.visible=false; return; }
+    var st = LEARNING_SEQUENCE[learning.step], roots = rootsById[st.target]||[], target=null, b=null;
+    for(var i=0;i<roots.length && !target;i++){
+      var bb = meshBounds(roots[i],99); if(!bb) continue;
+      var cx=(bb.min.x+bb.max.x)/2, cz=(bb.min.z+bb.max.z)/2, rm = findRoomAt(cx,cz);
+      if(rm && rm.id===st.room){ target=roots[i]; b=bb; }
+    }
+    if(!b){ learnArrow.visible=false; return; }
+    learnArrow.position.set((b.min.x+b.max.x)/2, 0, (b.min.z+b.max.z)/2);
+    arrowBase = Math.min(b.max.y,7)+1.1;
+    learnArrow.visible = true;
+  }
+  function renderLearn(){
+    var st = LEARNING_SEQUENCE[learning.step], room = roomById[st.room];
+    document.getElementById('lb-step').textContent = 'Step '+(learning.step+1)+' of '+LEARNING_SEQUENCE.length;
+    document.getElementById('lb-room').textContent = room.name;
+    document.getElementById('lb-note').textContent = st.note;
+    document.getElementById('lb-prev').disabled = learning.step===0;
+    document.getElementById('lb-next').disabled = learning.step===LEARNING_SEQUENCE.length-1;
+    placeArrow();
+  }
+  btnLearn.addEventListener('click',function(){
+    learning.active = !learning.active;
+    btnLearn.classList.toggle('active',learning.active); learnBanner.classList.toggle('show',learning.active);
+    if(learning.active) renderLearn(); else placeArrow();
+  });
+  document.getElementById('lb-exit').addEventListener('click',function(){ learning.active=false; btnLearn.classList.remove('active'); learnBanner.classList.remove('show'); placeArrow(); });
+  document.getElementById('lb-next').addEventListener('click',function(){ learning.step=Math.min(LEARNING_SEQUENCE.length-1,learning.step+1); renderLearn(); });
+  document.getElementById('lb-prev').addEventListener('click',function(){ learning.step=Math.max(0,learning.step-1); renderLearn(); });
+  document.getElementById('lb-go').addEventListener('click',function(){ teleportTo(roomById[LEARNING_SEQUENCE[learning.step].room]); });
+
+  /* ============================================================
+     MODULE: top-bar modals
+  ============================================================ */
+  var modalOverlay = document.getElementById('modal-overlay'), modalTitle = document.getElementById('modal-title'), modalBody = document.getElementById('modal-body');
+  function openModal(t,html){ modalTitle.textContent=t; modalBody.innerHTML=html; modalOverlay.classList.add('show'); }
+  function closeModal(){ modalOverlay.classList.remove('show'); }
+  document.getElementById('modal-close').addEventListener('click',closeModal);
+  modalOverlay.addEventListener('click',function(e){ if(e.target===modalOverlay) closeModal(); });
+
+  document.getElementById('btn-map').addEventListener('click',function(){
+    openModal('Laboratory Floor Map','<div class="map-wrap"><canvas id="modal-mm" width="700" height="490" style="width:100%;min-width:480px;height:auto;border-radius:6px;cursor:pointer;"></canvas></div><p class="note">Building is 100 ft × 70 ft. Green ticks are doorways. Click a room to teleport there.</p>');
+    var c = document.getElementById('modal-mm'), ctx = c.getContext('2d');
+    paintMap(ctx,7,2); drawPlayer(ctx,7);
+    c.addEventListener('click',function(e){
+      var rect=c.getBoundingClientRect(), mx=(e.clientX-rect.left)*(c.width/rect.width), my=(e.clientY-rect.top)*(c.height/rect.height);
+      var room = findRoomAt(mx/7-50,35-my/7);
+      if(room){ teleportTo(room); closeModal(); }
+    });
+  });
+  document.getElementById('btn-equipment').addEventListener('click',function(){
+    var html = '<p class="note">Click any item to open its information panel.</p>';
+    Object.keys(INFO).forEach(function(id){
+      html += '<div class="eq-item" data-id="'+id+'"><div class="eq-name">'+INFO[id].name+'</div><div class="eq-sub">'+INFO[id].purpose+'</div></div>';
+    });
+    openModal('Equipment Directory',html);
+    modalBody.querySelectorAll('.eq-item').forEach(function(el){
+      el.addEventListener('click',function(){ closeModal(); renderInfoPanel(el.getAttribute('data-id')); });
+    });
+  });
+  document.getElementById('btn-safety').addEventListener('click',function(){
+    var rules = []; ROOMS.forEach(function(r){ r.safety.forEach(function(s){ if(rules.indexOf(s)<0) rules.push(s); }); });
+    openModal('Safety Overview',
+      '<h3>Signage you will find in this laboratory</h3><ul><li>Wear PPE</li><li>No food or drink</li><li>Biohazard</li><li>Chemical hazard</li><li>Sharps</li><li>Hot surface</li><li>Electrical hazard</li><li>UV hazard</li><li>Emergency exit</li><li>Fire extinguisher</li><li>First aid</li></ul>'+
+      '<h3>Safety equipment</h3><ul><li>Fire extinguisher, first aid kit and emergency stop in the corridor</li><li>Safety shower and eyewash beside the Chemical Storage door</li><li>Emergency exit at the east end of the corridor</li><li>Emergency red light inside the dark room</li></ul>'+
+      '<h3>Room safety notes</h3><ul>'+rules.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ul>');
+  });
+  document.getElementById('btn-guide').addEventListener('click',function(){ labGuideActive=true; renderRoomGuide(roomById[currentRoomId]); });
+  document.getElementById('btn-reset').addEventListener('click',function(){
+    camera.position.set(-46,EYE_H,20); camera.rotation.set(0,-Math.PI/2,0); camera.fov=70; camera.updateProjectionMatrix();
+    closeSidePanel(); closeModal();
+  });
+  document.getElementById('btn-help').addEventListener('click',function(){
+    openModal('Controls and Help',
+      '<div class="kv-row"><span>Move</span><kbd>W A S D</kbd></div><div class="kv-row"><span>Move (alternative)</span><kbd>Arrow keys</kbd></div>'+
+      '<div class="kv-row"><span>Look around</span><kbd>Click and drag</kbd></div><div class="kv-row"><span>Zoom</span><kbd>Mouse wheel</kbd></div>'+
+      '<div class="kv-row"><span>Inspect equipment, open cabinets, doors, room labels</span><kbd>Click or E</kbd></div>'+
+      '<div class="kv-row"><span>Close panel</span><kbd>Esc</kbd></div>'+
+      '<h3>Tips</h3><ul><li>Aim the center dot at an object; the prompt under it tells you what you can click.</li>'+
+      '<li>Follow the green floor line down the corridor to find every room door.</li>'+
+      '<li>Try the autoclave, the laminar air flow cabinet, the culture room lights, and the dark room switch.</li>'+
+      '<li>Switch to <b>Night mode</b>, then visit the dark room to see it go fully dark.</li>'+
+      '<li>Turn on <b>Learning Mode</b> for a guided tour of the whole workflow.</li></ul>');
+  });
+
+  /* ============================================================
+     MODULE: resize + main loop
+  ============================================================ */
+  window.addEventListener('resize',function(){
+    camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
+  });
+  var frame = 0, tAcc = 0;
+  function animate(){
+    requestAnimationFrame(animate);
+    var dt = Math.min(0.1,clock.getDelta()); tAcc += dt;
+    updateMovement(dt);
+    stepAutoclave(dt); stepLAF(dt); stepMist(dt); stepMonitors(dt);
+    var k, d;
+    for(k in DOOR_REGISTRY){ d = DOOR_REGISTRY[k]; d.mesh.position.y += (d.targetY-d.mesh.position.y)*0.12; }
+    for(k in CABINETS){
+      var cab = CABINETS[k].userData.cabinet;
+      if(Math.abs(cab.cur-cab.target)>0.002){ cab.cur += (cab.target-cab.cur)*0.18; cab.pivL.rotation.y = -cab.cur; cab.pivR.rotation.y = cab.cur; }
+    }
+    if(learnArrow.visible){ learnArrow.position.y = arrowBase + Math.sin(tAcc*3)*0.25; }
+    sunLight.position.set(camera.position.x-6,32,camera.position.z+5);
+    sunLight.target.position.set(camera.position.x,0,camera.position.z); sunLight.target.updateMatrixWorld();
+    updateCurrentRoom();
+    frame++;
+    if(frame%6===0) updateHover();
+    if(frame%10===0) drawMinimap();
+    renderer.render(scene,camera);
+  }
+
+  var savedDN = null; try{ savedDN = localStorage.getItem('ptc_lab_daynight'); }catch(e){}
+  setDayNight(savedDN==='night' ? 'night' : 'day');
+  updateLAFVisual(); updateOvenVisual(); updateGrowthLights(); updateDarkroomLight(); updateMistVisual(); setAutoclaveLed();
+  drawMinimap();
+  animate();
+  setTimeout(function(){
+    document.getElementById('loading').classList.add('hide');
+    showRoomCard(roomById.entry);
+  },700);
+
+})();
+</script>
+</body>
+</html>
